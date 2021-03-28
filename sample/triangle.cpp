@@ -51,7 +51,7 @@ const std::vector<Vertex> vertices = {
 
 int main(int, char**)
 {
-  Renderer r("Sample Project", true);
+  Renderer r("Sample Project - Hello Triangle", true);
 
   Pipeline::InitBackend();
 

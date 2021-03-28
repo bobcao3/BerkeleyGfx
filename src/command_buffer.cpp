@@ -32,11 +32,21 @@ void BG::CommandBuffer::Draw(uint32_t vertexCount, uint32_t firstVertex, uint32_
   m_buf.draw(vertexCount, instanceCount, firstVertex, firstInstance);
 }
 
+void BG::CommandBuffer::DrawIndexed(uint32_t indexCount, uint32_t firstIndex, uint32_t vertexOffset, uint32_t instanceCount, uint32_t firstInstance)
+{
+  m_buf.drawIndexed(indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+}
+
 void BG::CommandBuffer::BindVertexBuffer(VertexBufferBinding binding, std::shared_ptr<BG::Buffer> buffer, size_t offset)
 {
-  VkBuffer vertexBuffers[] = { buffer->buffer };
-  VkDeviceSize offsets[] = { offset };
-  vkCmdBindVertexBuffers(m_buf, binding.binding, 1, vertexBuffers, offsets);
+  vk::Buffer vertexBuffers[] = { buffer->buffer };
+  vk::DeviceSize offsets[] = { offset };
+  m_buf.bindVertexBuffers(binding.binding, 1, vertexBuffers, offsets);
+}
+
+void BG::CommandBuffer::BindIndexBuffer(std::shared_ptr<BG::Buffer> buffer, size_t offset, vk::IndexType indexType)
+{
+  m_buf.bindIndexBuffer(buffer->buffer, offset, indexType);
 }
 
 void BG::CommandBuffer::WithRenderPass(Pipeline& p, vk::Framebuffer& frameBuffer, glm::uvec2 extent, glm::vec4 clearColor, glm::ivec2 offset, std::function<void()> func)

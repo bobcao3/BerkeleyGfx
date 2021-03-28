@@ -4,6 +4,8 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
     message(FATAL_ERROR "Do not build in-source. Please remove CMakeCache.txt and the CMakeFiles/ directory. Then build out-of-source.")
 endif()
 
+# The library itself
+
 project(
     "BoilerPlate"
     VERSION 0.0.0
@@ -51,14 +53,24 @@ set(BerkeleyGfx_INCLUDE
   ext/glslang
   ext/spdlog/include
   ext/VulkanMemoryAllocator/src
+  ext/tinygltf
+  ext/
   src
 )
 
 target_include_directories(BerkeleyGfx PUBLIC ${BerkeleyGfx_INCLUDE})
 
-add_executable(SampleProject sample/main.cpp)
+# Sample projects
 
-target_link_libraries(SampleProject PUBLIC BerkeleyGfx)
-target_include_directories(SampleProject PUBLIC ${BerkeleyGfx_INCLUDE})
+add_executable(SampleHelloTriangle "sample/triangle.cpp")
+target_link_libraries(SampleHelloTriangle PUBLIC BerkeleyGfx)
+target_include_directories(SampleHelloTriangle PUBLIC ${BerkeleyGfx_INCLUDE})
 
-set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT SampleProject)
+add_executable(SampleGlTFViewer "sample/1_glTFViewer/gltfViewer.cpp")
+target_compile_definitions(SampleGlTFViewer PUBLIC SRC_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(SampleGlTFViewer PUBLIC BerkeleyGfx)
+target_include_directories(SampleGlTFViewer PUBLIC ${BerkeleyGfx_INCLUDE})
+
+# Set default project when generating a solution file
+
+set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT SampleHelloTriangle)
