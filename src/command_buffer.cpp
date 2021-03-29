@@ -49,6 +49,28 @@ void BG::CommandBuffer::BindIndexBuffer(std::shared_ptr<BG::Buffer> buffer, size
   m_buf.bindIndexBuffer(buffer->buffer, offset, indexType);
 }
 
+void BG::CommandBuffer::BindGraphicsUniformBuffer(Pipeline& p, vk::DescriptorPool descPool, std::shared_ptr<BG::Buffer> buffer, uint32_t offset, uint32_t range, int binding, int arrayElement)
+{
+  std::vector<vk::DescriptorSet> sets = p.AllocDescSet(descPool);
+
+  vk::DescriptorBufferInfo bufferInfo;
+  bufferInfo.buffer = buffer->buffer;
+  bufferInfo.offset = offset;
+  bufferInfo.range = range;
+
+  vk::WriteDescriptorSet descSetWrite;
+  descSetWrite.dstBinding = binding;
+  descSetWrite.dstArrayElement = arrayElement;
+  descSetWrite.dstSet = sets[0];
+  descSetWrite.descriptorType = vk::DescriptorType::eUniformBuffer;
+  descSetWrite.descriptorCount = 1;
+  descSetWrite.pBufferInfo = &bufferInfo;
+
+  m_device.updateDescriptorSets(1, &descSetWrite, 0, nullptr);
+
+  m_buf.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, p.GetLayout(), 0, 1, &sets[0], 0, nullptr);
+}
+
 void BG::CommandBuffer::WithRenderPass(Pipeline& p, vk::Framebuffer& frameBuffer, glm::uvec2 extent, glm::vec4 clearColor, glm::ivec2 offset, std::function<void()> func)
 {
   this->BeginRenderPass(p, frameBuffer, extent, clearColor, offset);

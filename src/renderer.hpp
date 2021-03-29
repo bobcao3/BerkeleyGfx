@@ -58,6 +58,7 @@ namespace BG
     void CreateCmdPools();
     void CreateCmdBuffers();
     void CreateSemaphore();
+    void CreateDescriptorPools();
 
     int m_width = 1280, m_height = 720;
 
@@ -66,6 +67,7 @@ namespace BG
     std::vector<vk::UniqueFence> m_inFlightFences;
     std::vector<vk::UniqueFence*> m_imagesInFlight;
     std::vector<vk::UniqueCommandBuffer> m_cmdBuffers;
+    std::vector<vk::UniqueDescriptorPool> m_descPools;
 
     const int MAX_FRAMES_IN_FLIGHT = 2;
 
@@ -74,9 +76,11 @@ namespace BG
     struct Context
     {
       CommandBuffer& cmdBuffer;
+      vk::DescriptorPool descPool;
       vk::ImageView imageView;
       int imageIndex;
       int currentFrame;
+      float time;
     };
 
     Renderer(std::string name, bool enableValidationLayers = false);

@@ -99,6 +99,18 @@ void BG::Pipeline::AddAttribute(VertexBufferBinding binding, int location, vk::F
   m_attributeDescriptions.push_back(desc);
 }
 
+void BG::Pipeline::AddDescriptorUniform(int binding, vk::ShaderStageFlags stage, int count)
+{
+  vk::DescriptorSetLayoutBinding layoutBinding;
+  layoutBinding.binding = 0;
+  layoutBinding.descriptorType = vk::DescriptorType::eUniformBuffer;
+  layoutBinding.descriptorCount = count;
+  layoutBinding.stageFlags = stage;
+  layoutBinding.pImmutableSamplers = nullptr;
+
+  m_descSetLayoutBindings.push_back(layoutBinding);
+}
+
 void BG::Pipeline::SetViewport(float width, float height, float x, float y, float minDepth, float maxDepth)
 {
   m_viewport.x = x;
@@ -145,7 +157,16 @@ void BG::Pipeline::AddAttachment(vk::Format format, vk::ImageLayout initialLayou
 
 void BG::Pipeline::BuildPipeline()
 {
-  m_layout = m_device.createPipelineLayoutUnique({ {}, 0, nullptr, 0, nullptr });
+  vk::DescriptorSetLayoutCreateInfo layoutInfo;
+  layoutInfo.setBindings(m_descSetLayoutBindings);
+
+  m_descriptorSetLayout = m_device.createDescriptorSetLayoutUnique(layoutInfo);
+
+  vk::PipelineLayoutCreateInfo pipelineLayoutInfo;
+  pipelineLayoutInfo.setLayoutCount = 1;
+  pipelineLayoutInfo.pSetLayouts = &m_descriptorSetLayout.get();
+
+  m_layout = m_device.createPipelineLayoutUnique(pipelineLayoutInfo);
 
   std::vector<vk::AttachmentReference> attachments;
 
@@ -202,6 +223,16 @@ void BG::Pipeline::BuildPipeline()
   m_pipeline = m_device.createGraphicsPipelineUnique(nullptr, pipelineInfo, nullptr);
 
   m_created = true;
+}
+
+std::vector<vk::DescriptorSet> Pipeline::AllocDescSet(vk::DescriptorPool pool)
+{
+  vk::DescriptorSetAllocateInfo allocInfo;
+  allocInfo.descriptorPool = pool;
+  allocInfo.descriptorSetCount = 1;
+  allocInfo.pSetLayouts = &m_descriptorSetLayout.get();
+
+  return m_device.allocateDescriptorSets(allocInfo);
 }
 
 vk::RenderPass Pipeline::GetRenderPass()

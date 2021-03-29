@@ -28,14 +28,16 @@ namespace BG
     std::vector<vk::PipelineShaderStageCreateInfo> m_stageCreateInfos;
     std::vector<vk::AttachmentDescription>         m_attachments;
 
-    vk::UniquePipelineLayout m_layout;
-    vk::UniqueRenderPass     m_renderpass;
-    vk::UniquePipeline       m_pipeline;
-
+    vk::UniqueDescriptorSetLayout m_descriptorSetLayout;
+    vk::UniquePipelineLayout      m_layout;
+    vk::UniqueRenderPass          m_renderpass;
+    vk::UniquePipeline            m_pipeline;
+    
     bool m_created = false;
 
     std::vector<vk::VertexInputBindingDescription> m_bindingDescriptions;
     std::vector<vk::VertexInputAttributeDescription> m_attributeDescriptions;
+    std::vector<vk::DescriptorSetLayoutBinding> m_descSetLayoutBindings;
 
   public:
     void AddFragmentShaders(std::string shaders);
@@ -54,12 +56,16 @@ namespace BG
 
     void AddAttribute(VertexBufferBinding binding, int location, vk::Format format, size_t offset);
 
+    void AddDescriptorUniform(int binding, vk::ShaderStageFlags stage, int count = 1);
+
     void SetViewport(float width, float height, float x = 0.0, float y = 0.0, float minDepth = 0.0f, float maxDepth = 1.0f);
     void SetScissor(int x, int y, int width, int height);
 
     void AddAttachment(vk::Format format, vk::ImageLayout initialLayout, vk::ImageLayout finalLayout, vk::SampleCountFlagBits samples = vk::SampleCountFlagBits::e1);
 
     void BuildPipeline();
+
+    std::vector<vk::DescriptorSet> AllocDescSet(vk::DescriptorPool pool);
 
     vk::RenderPass GetRenderPass();
     vk::Pipeline GetPipeline();

@@ -46,6 +46,7 @@ void BG::Renderer::InitVulkan()
   CreateSwapChain();
   CreateCmdPools();
   CreateCmdBuffers();
+  CreateDescriptorPools();
   CreateSemaphore();
 }
 
@@ -343,6 +344,22 @@ void BG::Renderer::CreateSemaphore()
   m_imagesInFlight.resize(m_swapchainImages.size(), nullptr);
 }
 
+void BG::Renderer::CreateDescriptorPools()
+{
+  vk::DescriptorPoolSize poolSize;
+  poolSize.descriptorCount = 1024;
+
+  vk::DescriptorPoolCreateInfo info;
+  info.poolSizeCount = 1;
+  info.pPoolSizes = &poolSize;
+  info.maxSets = 256;
+
+  for (int i = 0; i < m_swapchainImages.size(); i++)
+  {
+    m_descPools.push_back(m_device->createDescriptorPoolUnique(info));
+  }
+}
+
 BG::Renderer::Renderer(std::string name, bool enableValidationLayers)
   : m_name(name), m_enableValidationLayers(enableValidationLayers)
 {
@@ -361,6 +378,11 @@ void BG::Renderer::Run(std::function<void()> init, std::function<void(Context&)>
 
   int imageIndex = 0;
   size_t currentFrame = 0;
+
+  size_t frameCount = 0;
+  auto startTime = std::chrono::high_resolution_clock::now();
+
+  auto startTimeSteady = std::chrono::steady_clock::now();
 
   while (!glfwWindowShouldClose(m_window))
   {
@@ -381,9 +403,13 @@ void BG::Renderer::Run(std::function<void()> init, std::function<void(Context&)>
 
     m_imagesInFlight[imageIndex] = &m_inFlightFences[currentFrame];
 
-    CommandBuffer cmdBuffer(m_device.get(), m_cmdBuffers[imageIndex].get());
-    
-    Context ctx{ cmdBuffer, m_swapchainImageViews[imageIndex].get(), imageIndex, currentFrame };
+    m_device->resetDescriptorPool(m_descPools[imageIndex].get());
+
+    float time = (std::chrono::steady_clock::now() - startTimeSteady).count() * 1e-9;
+    Context ctx{
+      CommandBuffer(m_device.get(), m_cmdBuffers[imageIndex].get()),
+      m_descPools[imageIndex].get(),
+      m_swapchainImageViews[imageIndex].get(), imageIndex, currentFrame, time };
 
     render(ctx);
 
@@ -410,6 +436,15 @@ void BG::Renderer::Run(std::function<void()> init, std::function<void(Context&)>
     m_graphcisQueue.presentKHR(presentInfo);
 
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+
+    frameCount++;
+    if (frameCount % 1000 == 999)
+    {
+      auto now = std::chrono::high_resolution_clock::now();
+      double timeDiff = (now - startTime).count();
+      startTime = now;
+      spdlog::info("Frame {}, Last 1000 frames took {:.2f}ms, FPS={:.2f}", frameCount, timeDiff * 1e-6, 1000.0 * 1e9 / timeDiff);
+    }
   }
 
   cleanup();

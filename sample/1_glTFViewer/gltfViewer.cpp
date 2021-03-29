@@ -8,6 +8,8 @@
 #include <fstream>
 #include <streambuf>
 
+#include <glm/gtc/matrix_transform.hpp>
+
 // Import the tinyGlTF library to load glTF models
 #define TINYGLTF_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
@@ -42,6 +44,15 @@ struct DrawCmd
   uint32_t vertexOffset;
   glm::mat4 transform;
 };
+
+struct ShaderUniform
+{
+  glm::mat4 modelMtx;
+  glm::mat4 viewProjMtx;
+};
+
+glm::mat4 viewMtx;
+glm::mat4 projMtx;
 
 // List of draw commands
 std::vector<DrawCmd> drawObjects;
@@ -147,7 +158,7 @@ void load_gltf_node(tinygltf::Model& model, int nodeId, glm::mat4 transform)
 // The function that loads the glTF file and initiate the recursive call to flatten the hierarchy
 void load_gltf_model()
 {
-  std::string model_file = SRC_DIR"/assets/glTF-Sample-Models/2.0/Duck/glTF/Duck.gltf";
+  std::string model_file = SRC_DIR"/assets/glTF-Sample-Models/2.0/WaterBottle/glTF/WaterBottle.gltf";
 
   tinygltf::Model model;
   tinygltf::TinyGLTF loader;
@@ -207,7 +218,7 @@ int main(int, char**)
   std::vector<vk::UniqueFramebuffer> framebuffers;
 
   // Our GPU buffers holding the vertices and the indices
-  std::shared_ptr<Buffer> vertexBuffer, indexBuffer;
+  std::shared_ptr<Buffer> vertexBuffer, indexBuffer, uniformBuffer;
 
   BG::VertexBufferBinding vertexBinding;
 
@@ -232,6 +243,8 @@ int main(int, char**)
       // Unmap the GPU buffer
       indexBuffer->UnMap();
 
+      uniformBuffer = r.getMemoryAllocator()->AllocCPU2GPU(sizeof(ShaderUniform) * r.getSwapchainImageViews().size() * drawObjects.size(), vk::BufferUsageFlagBits::eUniformBuffer);
+
       // Create a empty pipline
       pipeline = r.CreatePipeline();
       // Add a vertex binding
@@ -239,6 +252,8 @@ int main(int, char**)
       // Specify two vertex input attributes from the binding
       pipeline->AddAttribute(vertexBinding, 0, vk::Format::eR32G32B32Sfloat, offsetof(Vertex, pos));
       pipeline->AddAttribute(vertexBinding, 1, vk::Format::eR32G32B32Sfloat, offsetof(Vertex, color));
+      // Specify the uniform buffer binding
+      pipeline->AddDescriptorUniform(0, vk::ShaderStageFlagBits::eVertex);
       // Add shaders
       pipeline->AddFragmentShaders(fragmentShader);
       pipeline->AddVertexShaders(vertexShader);
@@ -262,6 +277,21 @@ int main(int, char**)
     [&](Renderer::Context& ctx) {
       int width = r.getWidth(), height = r.getHeight();
 
+      viewMtx = glm::lookAt(glm::vec3(cos(ctx.time), cos(ctx.time * 0.5), sin(ctx.time)), glm::vec3(0.0), glm::vec3(0.0, 1.0, 0.0));
+      projMtx = glm::perspective(glm::radians(45.0f), float(width) / float(height), 0.1f, 10.0f);
+      projMtx[1][1] *= -1.0;
+
+      ShaderUniform* uniformBufferGPU = uniformBuffer->Map<ShaderUniform>();
+      int i = 0;
+      for (auto& drawCmd : drawObjects)
+      {
+        auto& uniform = uniformBufferGPU[ctx.imageIndex * drawObjects.size() + i];
+        uniform.modelMtx = drawCmd.transform;
+        uniform.viewProjMtx = projMtx * viewMtx;
+        i++;
+      }
+      uniformBuffer->UnMap();
+
       // Begin & resets the command buffer
       ctx.cmdBuffer.Begin();
       // Use the RenderPass from the pipeline we built
@@ -273,9 +303,12 @@ int main(int, char**)
         // Bind the index buffer
         ctx.cmdBuffer.BindIndexBuffer(indexBuffer, 0);
         // Draw objects
+        int i = 0;
         for (auto& drawCmd : drawObjects)
         {
+          ctx.cmdBuffer.BindGraphicsUniformBuffer(*pipeline, ctx.descPool, uniformBuffer, sizeof(ShaderUniform) * (ctx.imageIndex * drawObjects.size() + i), sizeof(ShaderUniform), 0);
           ctx.cmdBuffer.DrawIndexed(drawCmd.indexCount, drawCmd.firstIndex, drawCmd.vertexOffset);
+          i++;
         }
         });
       // End the recording of command buffer

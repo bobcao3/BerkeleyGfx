@@ -29,6 +29,7 @@ namespace BG
     void DrawIndexed(uint32_t indexCount, uint32_t firstIndex = 0, uint32_t vertexOffset = 0, uint32_t instanceCount = 1, uint32_t firstInstance = 0);
     void BindVertexBuffer(VertexBufferBinding binding, std::shared_ptr<BG::Buffer> buffer, size_t offset);
     void BindIndexBuffer(std::shared_ptr<BG::Buffer> buffer, size_t offset, vk::IndexType indexType = vk::IndexType::eUint32);
+    void BindGraphicsUniformBuffer(Pipeline& p, vk::DescriptorPool descPool, std::shared_ptr<BG::Buffer> buffer, uint32_t offset, uint32_t range, int binding, int arrayElement = 0);
 
     void WithRenderPass(
       Pipeline& p,
