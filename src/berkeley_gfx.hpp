@@ -17,6 +17,9 @@ namespace BG
   class CommandBuffer;
   class MemoryAllocator;
   class Buffer;
+  class Image;
+  class TextureSystem;
+  class Tracker;
 
   struct VertexBufferBinding {
     int binding;

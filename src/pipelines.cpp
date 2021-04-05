@@ -1,8 +1,5 @@
 #include "pipelines.hpp"
-#include "pipelines.hpp"
-#include "pipelines.hpp"
-#include "pipelines.hpp"
-#include "pipelines.hpp"
+#include "buffer.hpp"
 
 #include <glslang/Public/ShaderLang.h>
 #include <SPIRV/GlslangToSpv.h>
@@ -102,8 +99,20 @@ void BG::Pipeline::AddAttribute(VertexBufferBinding binding, int location, vk::F
 void BG::Pipeline::AddDescriptorUniform(int binding, vk::ShaderStageFlags stage, int count)
 {
   vk::DescriptorSetLayoutBinding layoutBinding;
-  layoutBinding.binding = 0;
+  layoutBinding.binding = binding;
   layoutBinding.descriptorType = vk::DescriptorType::eUniformBuffer;
+  layoutBinding.descriptorCount = count;
+  layoutBinding.stageFlags = stage;
+  layoutBinding.pImmutableSamplers = nullptr;
+
+  m_descSetLayoutBindings.push_back(layoutBinding);
+}
+
+void BG::Pipeline::AddDescriptorTexture(int binding, vk::ShaderStageFlags stage, int count)
+{
+  vk::DescriptorSetLayoutBinding layoutBinding;
+  layoutBinding.binding = binding;
+  layoutBinding.descriptorType = vk::DescriptorType::eCombinedImageSampler;
   layoutBinding.descriptorCount = count;
   layoutBinding.stageFlags = stage;
   layoutBinding.pImmutableSamplers = nullptr;
@@ -155,6 +164,20 @@ void BG::Pipeline::AddAttachment(vk::Format format, vk::ImageLayout initialLayou
   m_attachments.push_back(attachment);
 }
 
+void BG::Pipeline::AddDepthAttachment(vk::ImageLayout initialLayout, vk::ImageLayout finalLayout)
+{
+  m_depthAttachment.format = vk::Format::eD32Sfloat;
+  m_depthAttachment.samples = vk::SampleCountFlagBits::e1;
+  m_depthAttachment.loadOp = vk::AttachmentLoadOp::eClear;
+  m_depthAttachment.storeOp = vk::AttachmentStoreOp::eDontCare;
+  m_depthAttachment.stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
+  m_depthAttachment.stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
+  m_depthAttachment.initialLayout = initialLayout;
+  m_depthAttachment.finalLayout = finalLayout;
+
+  m_useDepthAttachment = true;
+}
+
 void BG::Pipeline::BuildPipeline()
 {
   vk::DescriptorSetLayoutCreateInfo layoutInfo;
@@ -170,22 +193,40 @@ void BG::Pipeline::BuildPipeline()
 
   std::vector<vk::AttachmentReference> attachments;
 
-  int i = 0;
+  uint32_t i = 0;
   for (auto& attachment : m_attachments)
   {
-    attachments.push_back({ 0, vk::ImageLayout::eColorAttachmentOptimal });
+    attachments.push_back({ i, vk::ImageLayout::eColorAttachmentOptimal });
+    i++;
+  }
+
+  vk::AttachmentReference depthAttachmentRef;
+
+  if (m_useDepthAttachment)
+  {
+    depthAttachmentRef.attachment = i;
+    depthAttachmentRef.layout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
   }
 
   std::vector<vk::SubpassDescription> subpass;
-  subpass.push_back({
-    {}, /* flags */
-    vk::PipelineBindPoint::eGraphics, /* pipelineBindPoint */
-    {}, /* input attachments */
-    attachments, /* color attachments */
-    {} /* depth attachments */
-    });
+  vk::SubpassDescription mainSubpass;
+  mainSubpass.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics);
+  mainSubpass.setColorAttachments(attachments);
+  mainSubpass.setPDepthStencilAttachment(&depthAttachmentRef);
+  subpass.push_back(mainSubpass);
 
-  m_renderpass = m_device.createRenderPassUnique({ {}, m_attachments, subpass });
+  if (m_useDepthAttachment)
+  {
+    std::vector<vk::AttachmentDescription> allAttachements;
+    allAttachements = m_attachments;
+    allAttachements.push_back(m_depthAttachment);
+
+    m_renderpass = m_device.createRenderPassUnique({ {}, allAttachements, subpass });
+  }
+  else
+  {
+    m_renderpass = m_device.createRenderPassUnique({ {}, m_attachments, subpass });
+  }
 
   std::vector<vk::PipelineColorBlendAttachmentState> colorBlendAttachments;
 
@@ -206,6 +247,15 @@ void BG::Pipeline::BuildPipeline()
   m_vertexInputInfo.setVertexBindingDescriptions(m_bindingDescriptions);
   m_vertexInputInfo.setVertexAttributeDescriptions(m_attributeDescriptions);
 
+  vk::PipelineDepthStencilStateCreateInfo depthStencilState;
+  if (m_useDepthAttachment)
+  {
+    depthStencilState.depthTestEnable = true;
+    depthStencilState.depthWriteEnable = true;
+    depthStencilState.depthCompareOp = vk::CompareOp::eLess;
+    depthStencilState.depthBoundsTestEnable = false;
+  }
+
   vk::GraphicsPipelineCreateInfo pipelineInfo;
   pipelineInfo.setStages(m_stageCreateInfos);
   pipelineInfo.pVertexInputState = &m_vertexInputInfo;
@@ -213,7 +263,7 @@ void BG::Pipeline::BuildPipeline()
   pipelineInfo.pViewportState = &m_viewportInfo;
   pipelineInfo.pRasterizationState = &m_rasterizer;
   pipelineInfo.pMultisampleState = &m_multisampling;
-  pipelineInfo.pDepthStencilState = nullptr;
+  pipelineInfo.pDepthStencilState = m_useDepthAttachment ? &depthStencilState : nullptr;
   pipelineInfo.pColorBlendState = &blendInfo;
   pipelineInfo.pDynamicState = nullptr;
   pipelineInfo.layout = m_layout.get();
@@ -225,14 +275,51 @@ void BG::Pipeline::BuildPipeline()
   m_created = true;
 }
 
-std::vector<vk::DescriptorSet> Pipeline::AllocDescSet(vk::DescriptorPool pool)
+vk::DescriptorSet Pipeline::AllocDescSet(vk::DescriptorPool pool)
 {
   vk::DescriptorSetAllocateInfo allocInfo;
   allocInfo.descriptorPool = pool;
   allocInfo.descriptorSetCount = 1;
   allocInfo.pSetLayouts = &m_descriptorSetLayout.get();
 
-  return m_device.allocateDescriptorSets(allocInfo);
+  return m_device.allocateDescriptorSets(allocInfo)[0];
+}
+
+
+void BG::Pipeline::BindGraphicsUniformBuffer(Pipeline& p, vk::DescriptorSet descSet, std::shared_ptr<BG::Buffer> buffer, uint32_t offset, uint32_t range, int binding, int arrayElement)
+{
+  vk::DescriptorBufferInfo bufferInfo;
+  bufferInfo.buffer = buffer->buffer;
+  bufferInfo.offset = offset;
+  bufferInfo.range = range;
+
+  vk::WriteDescriptorSet descSetWrite;
+  descSetWrite.dstBinding = binding;
+  descSetWrite.dstArrayElement = arrayElement;
+  descSetWrite.dstSet = descSet;
+  descSetWrite.descriptorType = vk::DescriptorType::eUniformBuffer;
+  descSetWrite.descriptorCount = 1;
+  descSetWrite.pBufferInfo = &bufferInfo;
+
+  m_device.updateDescriptorSets(1, &descSetWrite, 0, nullptr);
+}
+
+void BG::Pipeline::BindGraphicsImageView(Pipeline& p, vk::DescriptorSet descSet, vk::ImageView view, vk::ImageLayout layout, vk::Sampler sampler, int binding, int arrayElement)
+{
+  vk::DescriptorImageInfo imageInfo;
+  imageInfo.imageLayout = layout;
+  imageInfo.imageView = view;
+  imageInfo.sampler = sampler;
+
+  vk::WriteDescriptorSet descSetWrite;
+  descSetWrite.dstBinding = binding;
+  descSetWrite.dstArrayElement = arrayElement;
+  descSetWrite.dstSet = descSet;
+  descSetWrite.descriptorType = vk::DescriptorType::eCombinedImageSampler;
+  descSetWrite.descriptorCount = 1;
+  descSetWrite.pImageInfo = &imageInfo;
+
+  m_device.updateDescriptorSets(1, &descSetWrite, 0, nullptr);
 }
 
 vk::RenderPass Pipeline::GetRenderPass()
@@ -300,6 +387,13 @@ void BG::Pipeline::BindRenderPass(
     clearValues.push_back({});
   }
 
+  if (m_useDepthAttachment)
+  {
+    vk::ClearValue cval;
+    cval.depthStencil.depth = 1.0;
+    clearValues.push_back(cval);
+  }
+
   renderPassInfo.setClearValues(clearValues);
 
   buf.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
@@ -321,7 +415,7 @@ BG::Pipeline::Pipeline(vk::Device device)
   m_rasterizer.polygonMode = vk::PolygonMode::eFill;
   m_rasterizer.lineWidth = 1.0f;
   m_rasterizer.cullMode = vk::CullModeFlagBits::eBack;
-  m_rasterizer.frontFace = vk::FrontFace::eClockwise;
+  m_rasterizer.frontFace = vk::FrontFace::eCounterClockwise;
   m_rasterizer.depthBiasEnable = false;
   
   m_multisampling.sampleShadingEnable = false;

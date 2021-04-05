@@ -17,6 +17,8 @@ set(BerkeleyGfx_SRC
   src/pipelines.cpp
   src/command_buffer.cpp
   src/buffer.cpp
+  src/texture_system.cpp
+  src/lifetime_tracker.cpp
 
   ext/imgui/imgui.cpp
   ext/imgui/imgui_draw.cpp

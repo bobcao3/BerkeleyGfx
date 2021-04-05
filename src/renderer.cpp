@@ -2,6 +2,8 @@
 #include "pipelines.hpp"
 #include "command_buffer.hpp"
 #include "buffer.hpp"
+#include "texture_system.hpp"
+#include "lifetime_tracker.hpp"
 
 #include <GLFW/glfw3native.h>
 
@@ -317,6 +319,24 @@ void BG::Renderer::CreateSwapChain()
   }
 
   m_swapchainFormat = surfaceFormat.format;
+
+  for (const auto& image : m_swapchainImages)
+  {
+    auto image = m_memoryAllocator->AllocImage2D(glm::uvec2(m_width, m_height), 1, vk::Format::eD32Sfloat, vk::ImageUsageFlagBits::eDepthStencilAttachment);
+    m_depthImages.push_back(image);
+
+    vk::ImageViewCreateInfo viewInfo;
+    viewInfo.image = image->image;
+    viewInfo.viewType = vk::ImageViewType::e2D;
+    viewInfo.format = vk::Format::eD32Sfloat;
+    viewInfo.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eDepth;
+    viewInfo.subresourceRange.baseMipLevel = 0;
+    viewInfo.subresourceRange.levelCount = 1;
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount = 1;
+
+    m_depthImageViews.push_back(m_device->createImageViewUnique(viewInfo));
+  }
 }
 
 void BG::Renderer::CreateCmdPools()
@@ -361,10 +381,12 @@ void BG::Renderer::CreateDescriptorPools()
 }
 
 BG::Renderer::Renderer(std::string name, bool enableValidationLayers)
-  : m_name(name), m_enableValidationLayers(enableValidationLayers)
+  : m_name(name), m_enableValidationLayers(enableValidationLayers), m_tracker(std::make_shared<BG::Tracker>(MAX_FRAMES_IN_FLIGHT))
 {
   InitWindow();
   InitVulkan();
+
+  m_textureSystem = std::make_shared<TextureSystem>(m_device.get(), *m_memoryAllocator, *this);
 }
 
 BG::Renderer::~Renderer()
@@ -405,11 +427,14 @@ void BG::Renderer::Run(std::function<void()> init, std::function<void(Context&)>
 
     m_device->resetDescriptorPool(m_descPools[imageIndex].get());
 
+    m_tracker->NewFrame();
+
     float time = (std::chrono::steady_clock::now() - startTimeSteady).count() * 1e-9;
     Context ctx{
-      CommandBuffer(m_device.get(), m_cmdBuffers[imageIndex].get()),
+      CommandBuffer(m_device.get(), m_cmdBuffers[imageIndex].get(), *m_tracker),
       m_descPools[imageIndex].get(),
-      m_swapchainImageViews[imageIndex].get(), imageIndex, currentFrame, time };
+      m_swapchainImageViews[imageIndex].get(), m_depthImageViews[imageIndex].get(),
+      imageIndex, currentFrame, time };
 
     render(ctx);
 
@@ -447,6 +472,8 @@ void BG::Renderer::Run(std::function<void()> init, std::function<void(Context&)>
     }
   }
 
+  m_device->waitIdle();
+
   cleanup();
 }
 
@@ -482,7 +509,40 @@ vk::UniqueFramebuffer BG::Renderer::CreateFramebuffer(vk::RenderPass& renderpass
   return m_device->createFramebufferUnique(framebufferInfo);
 }
 
+vk::UniqueFramebuffer BG::Renderer::CreateFramebuffer(vk::RenderPass& renderpass, std::vector<vk::ImageView>& imageView, std::vector<vk::ImageView>& depthView, int width, int height)
+{
+  vk::FramebufferCreateInfo framebufferInfo;
+  framebufferInfo.setRenderPass(renderpass);
+  framebufferInfo.setAttachments(imageView);
+  framebufferInfo.setWidth(width);
+  framebufferInfo.setHeight(height);
+  framebufferInfo.setLayers(1);
+
+  return m_device->createFramebufferUnique(framebufferInfo);
+}
+
 vk::UniqueCommandBuffer BG::Renderer::AllocCmdBuffer()
 {
   return std::move(m_device->allocateCommandBuffersUnique({ m_graphicsCmdPool.get(), vk::CommandBufferLevel::ePrimary, 1 })[0]);
+}
+
+void BG::Renderer::SubmitCmdBufferNow(vk::CommandBuffer buf, bool wait)
+{
+  vk::Fence fence;
+  vk::SubmitInfo submitInfo;
+
+  if (wait)
+  {
+    fence = m_device->createFence({});
+  }
+
+  submitInfo.setCommandBuffers(buf);
+
+  m_graphcisQueue.submit(1, &submitInfo, fence);
+
+  if (wait)
+  {
+    m_device->waitForFences(1, &fence, true, UINT64_MAX);
+    m_device->destroyFence(fence);
+  }
 }

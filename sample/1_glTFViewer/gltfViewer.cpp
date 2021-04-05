@@ -3,6 +3,7 @@
 #include "pipelines.hpp"
 #include "command_buffer.hpp"
 #include "buffer.hpp"
+#include "texture_system.hpp"
 
 #include <string>
 #include <fstream>
@@ -27,6 +28,7 @@ std::string fragmentShader;
 struct Vertex {
   glm::vec3 pos;
   glm::vec3 color;
+  glm::vec2 uv;
 };
 
 // Our CPU side index / vertex buffer
@@ -43,6 +45,7 @@ struct DrawCmd
   uint32_t firstIndex;
   uint32_t vertexOffset;
   glm::mat4 transform;
+  int materialId;
 };
 
 struct ShaderUniform
@@ -53,6 +56,8 @@ struct ShaderUniform
 
 glm::mat4 viewMtx;
 glm::mat4 projMtx;
+
+
 
 // List of draw commands
 std::vector<DrawCmd> drawObjects;
@@ -114,6 +119,15 @@ void load_gltf_node(tinygltf::Model& model, int nodeId, glm::mat4 transform)
 
       size_t indexBufferStride = indexAccessor.ByteStride(model.bufferViews[indexAccessor.bufferView]);
 
+      // Get the texture UV accessor (and relavent buffers)
+      auto& uvAccessor = model.accessors[primitive.attributes["TEXCOORD_0"]];
+      spdlog::info("{}x{}, offset = {}", uvAccessor.count, uvAccessor.ByteStride(model.bufferViews[uvAccessor.bufferView]), uvAccessor.byteOffset);
+
+      auto& uvBufferView = model.bufferViews[uvAccessor.bufferView];
+      auto& uvBuffer = model.buffers[uvBufferView.buffer];
+
+      size_t uvBufferStride = uvAccessor.ByteStride(model.bufferViews[uvAccessor.bufferView]);
+
       // Record the current size of our vertex buffer and index buffer
       // We will be pushing new data into these two vectors
       // The current size will be the starting offset of this draw command
@@ -125,9 +139,11 @@ void load_gltf_node(tinygltf::Model& model, int nodeId, glm::mat4 transform)
       {
         // Get the base address and store the vertex
         float* elementBase = (float*)((uint8_t*)(positionBuffer.data.data()) + positionBufferView.byteOffset + positionAccessor.byteOffset + positionBufferStride * index);
+        float* uvElementBase = (float*)((uint8_t*)(uvBuffer.data.data()) + uvBufferView.byteOffset + uvAccessor.byteOffset + uvBufferStride * index);
         Vertex v;
         v.pos = glm::vec3(elementBase[0], elementBase[1], elementBase[2]);
         v.color = glm::vec3(0.7);
+        v.uv = glm::vec2(uvElementBase[0], uvElementBase[1]);
         vertices.push_back(v);
       }
 
@@ -156,7 +172,7 @@ void load_gltf_node(tinygltf::Model& model, int nodeId, glm::mat4 transform)
 }
 
 // The function that loads the glTF file and initiate the recursive call to flatten the hierarchy
-void load_gltf_model()
+void load_gltf_model(Renderer& r)
 {
   std::string model_file = SRC_DIR"/assets/glTF-Sample-Models/2.0/WaterBottle/glTF/WaterBottle.gltf";
 
@@ -195,6 +211,18 @@ void load_gltf_model()
     load_gltf_node(model, sceneRootNodeId, transform);
   }
 
+  for (auto& m : model.materials)
+  {
+    
+  }
+
+  for (auto& img : model.images)
+  {
+    spdlog::info("Size {}, width {}, height {}, bit depth {}, {}", img.image.size(), img.width, img.height, img.bits, img.image.size() / img.width / img.height);
+
+    r.getTextureSystem()->AddTexture(img.image.data(), img.width, img.height, img.image.size(), vk::Format::eR8G8B8A8Srgb);
+  }
+
   spdlog::info("======== glTF load finished ========");
 }
 
@@ -203,9 +231,6 @@ int main(int, char**)
 {
   // Load the shader file into string
   load_shader_file();
-
-  // Load the glTF models into vertex and index buffer
-  load_gltf_model();
 
   // Instantiate the Berkeley Gfx renderer & the backend
   Renderer r("Sample Project - glTF Viewer", true);
@@ -225,6 +250,9 @@ int main(int, char**)
   r.Run(
     // Init
     [&]() {
+      // Load the glTF models into vertex and index buffer
+      load_gltf_model(r);
+
       // Allocate a buffer on GPU, and flag it as a Vertex Buffer & can be copied towards
       vertexBuffer = r.getMemoryAllocator()->AllocCPU2GPU(vertices.size() * sizeof(Vertex), vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst);
       // Map the GPU buffer into the CPU's memory space
@@ -252,8 +280,10 @@ int main(int, char**)
       // Specify two vertex input attributes from the binding
       pipeline->AddAttribute(vertexBinding, 0, vk::Format::eR32G32B32Sfloat, offsetof(Vertex, pos));
       pipeline->AddAttribute(vertexBinding, 1, vk::Format::eR32G32B32Sfloat, offsetof(Vertex, color));
-      // Specify the uniform buffer binding
-      pipeline->AddDescriptorUniform(0, vk::ShaderStageFlagBits::eVertex);
+      pipeline->AddAttribute(vertexBinding, 2, vk::Format::eR32G32Sfloat, offsetof(Vertex, uv));
+      // Specify the uniform bindings
+      pipeline->AddDescriptorUniform(0, vk::ShaderStageFlagBits::eAllGraphics);
+      pipeline->AddDescriptorTexture(1, vk::ShaderStageFlagBits::eAllGraphics);
       // Add shaders
       pipeline->AddFragmentShaders(fragmentShader);
       pipeline->AddVertexShaders(vertexShader);
@@ -261,16 +291,19 @@ int main(int, char**)
       pipeline->SetViewport(float(r.getWidth()), float(r.getHeight()));
       // Add an attachment for the pipeline to render to
       pipeline->AddAttachment(r.getSwapChainFormat(), vk::ImageLayout::eUndefined, vk::ImageLayout::ePresentSrcKHR);
+      pipeline->AddDepthAttachment();
       // Build the pipeline
       pipeline->BuildPipeline();
 
       int width = r.getWidth(), height = r.getHeight();
 
       // Create a Framebuffer (specifications of the render targets) for each SwapChain image
+      int i = 0;
       for (auto& imageView : r.getSwapchainImageViews())
       {
-        std::vector<vk::ImageView> renderTarget{ imageView.get() };
+        std::vector<vk::ImageView> renderTarget{ imageView.get(), r.getDepthImageViews()[i].get() };
         framebuffers.push_back(r.CreateFramebuffer(pipeline->GetRenderPass(), renderTarget, width, height));
+        i++;
       }
     },
     // Render
@@ -295,7 +328,8 @@ int main(int, char**)
       // Begin & resets the command buffer
       ctx.cmdBuffer.Begin();
       // Use the RenderPass from the pipeline we built
-      ctx.cmdBuffer.WithRenderPass(*pipeline, framebuffers[ctx.imageIndex].get(), glm::uvec2(width, height), [&](){
+      std::vector<vk::ImageView> renderTarget{ ctx.imageView, ctx.depthImageView };
+      ctx.cmdBuffer.WithRenderPass(*pipeline, renderTarget, glm::uvec2(width, height), [&](){
         // Bind the pipeline to use
         ctx.cmdBuffer.BindPipeline(*pipeline);
         // Bind the vertex buffer
@@ -306,7 +340,11 @@ int main(int, char**)
         int i = 0;
         for (auto& drawCmd : drawObjects)
         {
-          ctx.cmdBuffer.BindGraphicsUniformBuffer(*pipeline, ctx.descPool, uniformBuffer, sizeof(ShaderUniform) * (ctx.imageIndex * drawObjects.size() + i), sizeof(ShaderUniform), 0);
+          auto descSet = pipeline->AllocDescSet(ctx.descPool);
+          pipeline->BindGraphicsUniformBuffer(*pipeline, descSet, uniformBuffer, sizeof(ShaderUniform) * (ctx.imageIndex * drawObjects.size() + i), sizeof(ShaderUniform), 0);
+          pipeline->BindGraphicsImageView(*pipeline, descSet, r.getTextureSystem()->GetImageView({ 0 }), vk::ImageLayout::eShaderReadOnlyOptimal, r.getTextureSystem()->GetSampler(), 1);
+          ctx.cmdBuffer.BindGraphicsDescSets(*pipeline, descSet);
+
           ctx.cmdBuffer.DrawIndexed(drawCmd.indexCount, drawCmd.firstIndex, drawCmd.vertexOffset);
           i++;
         }

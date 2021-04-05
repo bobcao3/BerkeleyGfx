@@ -1,6 +1,7 @@
 #include "command_buffer.hpp"
 #include "buffer.hpp"
 #include "pipelines.hpp"
+#include "lifetime_tracker.hpp"
 
 void BG::CommandBuffer::Begin()
 {
@@ -49,26 +50,74 @@ void BG::CommandBuffer::BindIndexBuffer(std::shared_ptr<BG::Buffer> buffer, size
   m_buf.bindIndexBuffer(buffer->buffer, offset, indexType);
 }
 
-void BG::CommandBuffer::BindGraphicsUniformBuffer(Pipeline& p, vk::DescriptorPool descPool, std::shared_ptr<BG::Buffer> buffer, uint32_t offset, uint32_t range, int binding, int arrayElement)
+void BG::CommandBuffer::BindGraphicsDescSets(Pipeline& p, vk::DescriptorSet descSet, int set)
 {
-  std::vector<vk::DescriptorSet> sets = p.AllocDescSet(descPool);
+  m_buf.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, p.GetLayout(), set, 1, &descSet, 0, nullptr);
+}
 
-  vk::DescriptorBufferInfo bufferInfo;
-  bufferInfo.buffer = buffer->buffer;
-  bufferInfo.offset = offset;
-  bufferInfo.range = range;
+vk::AccessFlags getAccessFlags(vk::ImageLayout layout, bool read)
+{
+  switch (layout)
+  {
+  case vk::ImageLayout::eUndefined:
+    return vk::AccessFlags(0);
+  case vk::ImageLayout::eGeneral:
+    return vk::AccessFlags(0);
+  case vk::ImageLayout::eColorAttachmentOptimal:
+    return read ? vk::AccessFlagBits::eColorAttachmentRead : vk::AccessFlagBits::eColorAttachmentWrite;
+  case vk::ImageLayout::eDepthStencilAttachmentOptimal:
+    return read ? vk::AccessFlagBits::eDepthStencilAttachmentRead : vk::AccessFlagBits::eDepthStencilAttachmentWrite;
+  case vk::ImageLayout::eDepthStencilReadOnlyOptimal:
+    return vk::AccessFlagBits::eDepthStencilAttachmentRead;
+  case vk::ImageLayout::eShaderReadOnlyOptimal:
+    return vk::AccessFlagBits::eShaderRead;
+  case vk::ImageLayout::eTransferSrcOptimal:
+    return vk::AccessFlagBits::eTransferRead;
+  case vk::ImageLayout::eTransferDstOptimal:
+    return vk::AccessFlagBits::eTransferWrite;
+  case vk::ImageLayout::ePreinitialized:
+    return vk::AccessFlags(0);
+  case vk::ImageLayout::eDepthReadOnlyStencilAttachmentOptimal:
+    return vk::AccessFlagBits::eDepthStencilAttachmentRead;
+  case vk::ImageLayout::eDepthAttachmentStencilReadOnlyOptimal:
+    return vk::AccessFlagBits::eDepthStencilAttachmentRead;
+  case vk::ImageLayout::eDepthAttachmentOptimal:
+    return read ? vk::AccessFlagBits::eDepthStencilAttachmentRead : vk::AccessFlagBits::eDepthStencilAttachmentWrite;
+  case vk::ImageLayout::eDepthReadOnlyOptimal:
+    return vk::AccessFlagBits::eDepthStencilAttachmentRead;
+  case vk::ImageLayout::eStencilAttachmentOptimal:
+    return read ? vk::AccessFlagBits::eDepthStencilAttachmentRead : vk::AccessFlagBits::eDepthStencilAttachmentWrite;
+  case vk::ImageLayout::eStencilReadOnlyOptimal:
+    return vk::AccessFlagBits::eDepthStencilAttachmentRead;
+  case vk::ImageLayout::ePresentSrcKHR:
+    return vk::AccessFlags(0);
+  case vk::ImageLayout::eSharedPresentKHR:
+    return vk::AccessFlags(0);
+  case vk::ImageLayout::eShadingRateOptimalNV:
+    return vk::AccessFlags(0);
+  default:
+    return vk::AccessFlags(0);
+  }
+}
 
-  vk::WriteDescriptorSet descSetWrite;
-  descSetWrite.dstBinding = binding;
-  descSetWrite.dstArrayElement = arrayElement;
-  descSetWrite.dstSet = sets[0];
-  descSetWrite.descriptorType = vk::DescriptorType::eUniformBuffer;
-  descSetWrite.descriptorCount = 1;
-  descSetWrite.pBufferInfo = &bufferInfo;
+void BG::CommandBuffer::ImageTransition(std::shared_ptr<BG::Image> image, vk::PipelineStageFlags fromStage, vk::PipelineStageFlags toStage, vk::ImageLayout oldLayout, vk::ImageLayout newLayout, int baseMip, int levels, int baseLayer, int layers)
+{
+  vk::ImageMemoryBarrier barrierToTransfer;
+  barrierToTransfer.oldLayout = oldLayout;
+  barrierToTransfer.newLayout = newLayout;
+  barrierToTransfer.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrierToTransfer.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrierToTransfer.image = image->image;
+  if (image->HasColorPlane()) barrierToTransfer.subresourceRange.aspectMask |= vk::ImageAspectFlagBits::eColor;
+  if (image->HasDepthPlane()) barrierToTransfer.subresourceRange.aspectMask |= vk::ImageAspectFlagBits::eDepth;
+  barrierToTransfer.subresourceRange.baseMipLevel = baseMip;
+  barrierToTransfer.subresourceRange.levelCount = levels;
+  barrierToTransfer.subresourceRange.baseArrayLayer = baseLayer;
+  barrierToTransfer.subresourceRange.layerCount = layers;
+  barrierToTransfer.srcAccessMask = getAccessFlags(oldLayout, true);
+  barrierToTransfer.dstAccessMask = getAccessFlags(newLayout, false);
 
-  m_device.updateDescriptorSets(1, &descSetWrite, 0, nullptr);
-
-  m_buf.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, p.GetLayout(), 0, 1, &sets[0], 0, nullptr);
+  m_buf.pipelineBarrier(fromStage, toStage, vk::DependencyFlags(0), 0, nullptr, 0, nullptr, 1, &barrierToTransfer);
 }
 
 void BG::CommandBuffer::WithRenderPass(Pipeline& p, vk::Framebuffer& frameBuffer, glm::uvec2 extent, glm::vec4 clearColor, glm::ivec2 offset, std::function<void()> func)
@@ -83,7 +132,28 @@ void BG::CommandBuffer::WithRenderPass(Pipeline& p, vk::Framebuffer& frameBuffer
   WithRenderPass(p, frameBuffer, extent, glm::vec4(0.0), glm::ivec2(0), func);
 }
 
-BG::CommandBuffer::CommandBuffer(vk::Device device, vk::CommandBuffer buf)
-  : m_device(device), m_buf(buf)
+void BG::CommandBuffer::WithRenderPass(Pipeline& p, std::vector<vk::ImageView> renderTargets, glm::uvec2 extent, glm::vec4 clearColor, glm::ivec2 offset, std::function<void()> func)
+{
+  vk::FramebufferCreateInfo framebufferInfo;
+  framebufferInfo.setRenderPass(p.GetRenderPass());
+  framebufferInfo.setAttachments(renderTargets);
+  framebufferInfo.setWidth(extent.x);
+  framebufferInfo.setHeight(extent.y);
+  framebufferInfo.setLayers(1);
+
+  auto fb = m_device.createFramebufferUnique(framebufferInfo);
+
+  WithRenderPass(p, fb.get(), extent, glm::vec4(0.0), glm::ivec2(0), func);
+
+  m_tracker.DisposeFramebuffer(std::move(fb));
+}
+
+void BG::CommandBuffer::WithRenderPass(Pipeline& p, std::vector<vk::ImageView> renderTargets, glm::uvec2 extent, std::function<void()> func)
+{
+  WithRenderPass(p, renderTargets, extent, glm::vec4(0.0), glm::ivec2(0), func);
+}
+
+BG::CommandBuffer::CommandBuffer(vk::Device device, vk::CommandBuffer buf, BG::Tracker& tracker)
+  : m_device(device), m_buf(buf), m_tracker(tracker)
 {
 }

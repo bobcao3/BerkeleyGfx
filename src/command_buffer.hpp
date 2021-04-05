@@ -12,6 +12,7 @@ namespace BG
   private:
     vk::CommandBuffer m_buf;
     vk::Device m_device;
+    Tracker& m_tracker;
 
   public:
     void Begin();
@@ -29,7 +30,14 @@ namespace BG
     void DrawIndexed(uint32_t indexCount, uint32_t firstIndex = 0, uint32_t vertexOffset = 0, uint32_t instanceCount = 1, uint32_t firstInstance = 0);
     void BindVertexBuffer(VertexBufferBinding binding, std::shared_ptr<BG::Buffer> buffer, size_t offset);
     void BindIndexBuffer(std::shared_ptr<BG::Buffer> buffer, size_t offset, vk::IndexType indexType = vk::IndexType::eUint32);
-    void BindGraphicsUniformBuffer(Pipeline& p, vk::DescriptorPool descPool, std::shared_ptr<BG::Buffer> buffer, uint32_t offset, uint32_t range, int binding, int arrayElement = 0);
+
+    void BindGraphicsDescSets(Pipeline& p, vk::DescriptorSet descSet, int set = 0);
+
+    void ImageTransition(
+      std::shared_ptr<BG::Image> image,
+      vk::PipelineStageFlags fromStage, vk::PipelineStageFlags toStage,
+      vk::ImageLayout oldLayout, vk::ImageLayout newLayout,
+      int baseMip = 0, int levels = 1, int baseLayer = 0, int layers = 1);
 
     void WithRenderPass(
       Pipeline& p,
@@ -45,7 +53,23 @@ namespace BG
       glm::uvec2 extent,
       std::function<void()> func);
 
-    CommandBuffer(vk::Device device, vk::CommandBuffer buf);
+    void WithRenderPass(
+      Pipeline& p,
+      std::vector<vk::ImageView> renderTargets,
+      glm::uvec2 extent,
+      glm::vec4 clearColor,
+      glm::ivec2 offset,
+      std::function<void()> func);
+
+    void WithRenderPass(
+      Pipeline& p,
+      std::vector<vk::ImageView> renderTargets,
+      glm::uvec2 extent,
+      std::function<void()> func);
+
+    CommandBuffer(vk::Device device, vk::CommandBuffer buf, BG::Tracker& tracker);
+
+    inline vk::CommandBuffer GetVkCmdBuf() { return m_buf; }
   };
 
 }

@@ -30,6 +30,8 @@ namespace BG
 
     std::vector<vk::Image>             m_swapchainImages;
     std::vector<vk::UniqueImageView>   m_swapchainImageViews;
+    std::vector<std::shared_ptr<BG::Image>> m_depthImages;
+    std::vector<vk::UniqueImageView>   m_depthImageViews;
 
     vk::Queue                          m_graphcisQueue;
     vk::Queue                          m_computeQueue;
@@ -71,6 +73,10 @@ namespace BG
 
     const int MAX_FRAMES_IN_FLIGHT = 2;
 
+    std::shared_ptr<TextureSystem> m_textureSystem;
+
+    std::shared_ptr<Tracker> m_tracker;
+
   public:
 
     struct Context
@@ -78,6 +84,7 @@ namespace BG
       CommandBuffer& cmdBuffer;
       vk::DescriptorPool descPool;
       vk::ImageView imageView;
+      vk::ImageView depthImageView;
       int imageIndex;
       int currentFrame;
       float time;
@@ -92,15 +99,21 @@ namespace BG
     int getHeight();
 
     std::shared_ptr<BG::MemoryAllocator> getMemoryAllocator() { return m_memoryAllocator; };
+    std::shared_ptr<BG::TextureSystem> getTextureSystem() { return m_textureSystem; };
+    BG::Tracker& getTracker() { return *m_tracker; }
 
     std::vector<vk::Image>& getSwapchainImages() { return m_swapchainImages; };
     std::vector<vk::UniqueImageView>& getSwapchainImageViews() { return m_swapchainImageViews; };
+    std::vector<vk::UniqueImageView>& getDepthImageViews() { return m_depthImageViews; };
 
     vk::Format getSwapChainFormat();
 
     vk::UniqueFramebuffer CreateFramebuffer(vk::RenderPass& renderpass, std::vector<vk::ImageView>& imageView, int width, int height);
+    vk::UniqueFramebuffer CreateFramebuffer(vk::RenderPass& renderpass, std::vector<vk::ImageView>& imageView, std::vector<vk::ImageView>& depthView, int width, int height);
 
     vk::UniqueCommandBuffer AllocCmdBuffer();
+
+    void SubmitCmdBufferNow(vk::CommandBuffer buf, bool wait = true);
 
     void Run(std::function<void()> init, std::function<void(Context&)> render, std::function<void()> cleanup);
   };

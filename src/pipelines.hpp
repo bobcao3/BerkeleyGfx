@@ -28,6 +28,9 @@ namespace BG
     std::vector<vk::PipelineShaderStageCreateInfo> m_stageCreateInfos;
     std::vector<vk::AttachmentDescription>         m_attachments;
 
+    vk::AttachmentDescription m_depthAttachment;
+    bool m_useDepthAttachment = false;
+
     vk::UniqueDescriptorSetLayout m_descriptorSetLayout;
     vk::UniquePipelineLayout      m_layout;
     vk::UniqueRenderPass          m_renderpass;
@@ -57,15 +60,20 @@ namespace BG
     void AddAttribute(VertexBufferBinding binding, int location, vk::Format format, size_t offset);
 
     void AddDescriptorUniform(int binding, vk::ShaderStageFlags stage, int count = 1);
+    void AddDescriptorTexture(int binding, vk::ShaderStageFlags stage, int count = 1);
 
     void SetViewport(float width, float height, float x = 0.0, float y = 0.0, float minDepth = 0.0f, float maxDepth = 1.0f);
     void SetScissor(int x, int y, int width, int height);
 
     void AddAttachment(vk::Format format, vk::ImageLayout initialLayout, vk::ImageLayout finalLayout, vk::SampleCountFlagBits samples = vk::SampleCountFlagBits::e1);
+    void AddDepthAttachment(vk::ImageLayout initialLayout = vk::ImageLayout::eUndefined, vk::ImageLayout finalLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal);
 
     void BuildPipeline();
 
-    std::vector<vk::DescriptorSet> AllocDescSet(vk::DescriptorPool pool);
+    vk::DescriptorSet AllocDescSet(vk::DescriptorPool pool);
+
+    void BindGraphicsUniformBuffer(Pipeline& p, vk::DescriptorSet descSet, std::shared_ptr<BG::Buffer> buffer, uint32_t offset, uint32_t range, int binding, int arrayElement = 0);
+    void BindGraphicsImageView(Pipeline& p, vk::DescriptorSet descSet, vk::ImageView view, vk::ImageLayout layout, vk::Sampler sampler, int binding, int arrayElement = 0);
 
     vk::RenderPass GetRenderPass();
     vk::Pipeline GetPipeline();

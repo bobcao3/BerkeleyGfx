@@ -44,3 +44,41 @@ BG::Buffer::~Buffer()
 {
   vmaDestroyBuffer(allocator, buffer, allocation);
 }
+
+std::shared_ptr<BG::Image> BG::MemoryAllocator::AllocImage2D(glm::uvec2 extent, int mipLevels, vk::Format format, vk::ImageUsageFlags usage, vk::ImageLayout layout, VmaMemoryUsage memoryUsage)
+{
+  vk::ImageCreateInfo imageInfo;
+  imageInfo.extent.width = extent.x;
+  imageInfo.extent.height = extent.y;
+  imageInfo.extent.depth = 1;
+  imageInfo.mipLevels = mipLevels;
+  imageInfo.arrayLayers = 1;
+  imageInfo.format = format;
+  imageInfo.imageType = vk::ImageType::e2D;
+  imageInfo.initialLayout = layout;
+  imageInfo.tiling = vk::ImageTiling::eOptimal;
+  imageInfo.usage = usage;
+  imageInfo.sharingMode = vk::SharingMode::eExclusive;
+  imageInfo.samples = vk::SampleCountFlagBits::e1;
+
+  VkImageCreateInfo _imageInfo = imageInfo;
+
+  VmaAllocationCreateInfo allocInfo = {};
+  allocInfo.usage = memoryUsage;
+
+  VkImage image;
+  VmaAllocation allocation;
+  vmaCreateImage(allocator, &_imageInfo, &allocInfo, &image, &allocation, nullptr);
+
+  return std::make_shared<BG::Image>(allocator, image, allocation);
+}
+
+BG::Image::Image(VmaAllocator& allocator, vk::Image image, VmaAllocation allocation, bool color, bool depth)
+  : allocator(allocator), image(image), allocation(allocation), colorPlane(color), depthPlane(depth)
+{
+}
+
+BG::Image::~Image()
+{
+  vmaDestroyImage(allocator, image, allocation);
+}
