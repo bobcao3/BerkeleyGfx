@@ -11,18 +11,36 @@ std::vector<uint32_t> BuildSPIRV(glslang::TProgram& program, EShLanguage shaderT
   std::vector<unsigned int> spirv;
   spv::SpvBuildLogger logger;
   glslang::SpvOptions spvOptions;
+
+  spvOptions.validate = true;
+
   glslang::GlslangToSpv(*program.getIntermediate(shaderType), spirv, &logger, &spvOptions);
 
   return spirv;
 }
 
-std::vector<uint32_t> BuildProgramFromSrc(std::string shaders, EShLanguage shaderType)
+void BindDescriptorReflection(Pipeline& p, int binding, const glslang::TType* type, vk::ShaderStageFlags stage)
 {
+  if (type->isStruct())
+  {
+    spdlog::debug("Descriptor: binding = {}, Uniform Buffer", binding);
+    p.AddDescriptorUniform(binding, stage);
+  }
+  else if (type->isTexture())
+  {
+    spdlog::debug("Descriptor: binding = {}, Texture / Combined Sampler", binding);
+    p.AddDescriptorTexture(binding, stage);
+  }
+}
+
+std::vector<uint32_t> BG::Pipeline::BuildProgramFromSrc(std::string shaders, int _shaderType)
+{
+  EShLanguage shaderType = EShLanguage(_shaderType);
+
   const char* shaderCStr = shaders.c_str();
 
   glslang::TShader shader(shaderType);
   shader.setStrings(&shaderCStr, 1);
-
   int ClientInputSemanticsVersion = 100;
   glslang::EShTargetClientVersion VulkanClientVersion = glslang::EShTargetVulkan_1_0;
   glslang::EShTargetLanguageVersion TargetVersion = glslang::EShTargetSpv_1_0;
@@ -53,13 +71,46 @@ std::vector<uint32_t> BuildProgramFromSrc(std::string shaders, EShLanguage shade
     spdlog::error("Link failed");
   }
 
+  program.buildReflection();
+
+  spdlog::info("Shader has {} uniform blocks, {} uniform variables", program.getNumUniformBlocks(), program.getNumUniformVariables());
+
+  vk::ShaderStageFlags stage;
+
+  switch (shaderType)
+  {
+  case (EShLangFragment):
+    stage = vk::ShaderStageFlagBits::eFragment;
+    break;
+  case (EShLangVertex):
+    stage = vk::ShaderStageFlagBits::eVertex;
+    break;
+  default:
+    stage = vk::ShaderStageFlagBits::eAll;
+    break;
+  }
+
+  for (int i = 0; i < program.getNumUniformVariables(); i++)
+  {
+    auto binding = program.getUniformBinding(i);
+    auto type = program.getUniformTType(i);
+
+    if (binding >= 0) BindDescriptorReflection(*this, binding, type, stage);
+  }
+
+  for (int i = 0; i < program.getNumUniformBlocks(); i++)
+  {
+    auto binding = program.getUniformBlockBinding(i);
+    auto type = program.getUniformBlockTType(i);
+
+    if (binding >= 0) BindDescriptorReflection(*this, binding, type, stage);
+  }
+
   return BuildSPIRV(program, shaderType);
 }
 
-vk::UniqueShaderModule BG::Pipeline::AddShaders(std::string shaders, int _shaderType)
+vk::UniqueShaderModule BG::Pipeline::AddShaders(std::string shaders, int shaderType)
 {
-  EShLanguage shaderType = EShLanguage(_shaderType);
-
   std::vector<uint32_t> spirv = BuildProgramFromSrc(shaders, shaderType);
 
   auto shaderModule = m_device.createShaderModuleUnique({ {}, spirv });
@@ -188,6 +239,7 @@ void BG::Pipeline::BuildPipeline()
   vk::PipelineLayoutCreateInfo pipelineLayoutInfo;
   pipelineLayoutInfo.setLayoutCount = 1;
   pipelineLayoutInfo.pSetLayouts = &m_descriptorSetLayout.get();
+  pipelineLayoutInfo.setPushConstantRanges(m_pushConstants);
 
   m_layout = m_device.createPipelineLayoutUnique(pipelineLayoutInfo);
 
@@ -273,6 +325,16 @@ void BG::Pipeline::BuildPipeline()
   m_pipeline = m_device.createGraphicsPipelineUnique(nullptr, pipelineInfo, nullptr);
 
   m_created = true;
+}
+
+void BG::Pipeline::AddPushConstant(uint32_t offset, uint32_t size, vk::ShaderStageFlags stage)
+{
+  vk::PushConstantRange range;
+  range.offset = offset;
+  range.size = size;
+  range.stageFlags = stage;
+
+  m_pushConstants.push_back(range);
 }
 
 vk::DescriptorSet Pipeline::AllocDescSet(vk::DescriptorPool pool)

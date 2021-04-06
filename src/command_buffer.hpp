@@ -30,6 +30,11 @@ namespace BG
     void DrawIndexed(uint32_t indexCount, uint32_t firstIndex = 0, uint32_t vertexOffset = 0, uint32_t instanceCount = 1, uint32_t firstInstance = 0);
     void BindVertexBuffer(VertexBufferBinding binding, std::shared_ptr<BG::Buffer> buffer, size_t offset);
     void BindIndexBuffer(std::shared_ptr<BG::Buffer> buffer, size_t offset, vk::IndexType indexType = vk::IndexType::eUint32);
+    
+    void PushConstants(Pipeline& p, vk::ShaderStageFlagBits stage, uint32_t offset, uint32_t size, const void* data);
+    template <class T> void PushConstants(Pipeline& p, vk::ShaderStageFlagBits stage, uint32_t offset, T& data) {
+      PushConstants(p, stage, offset, sizeof(data), &data);
+    }
 
     void BindGraphicsDescSets(Pipeline& p, vk::DescriptorSet descSet, int set = 0);
 

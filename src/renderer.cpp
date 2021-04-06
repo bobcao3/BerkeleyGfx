@@ -5,6 +5,10 @@
 #include "texture_system.hpp"
 #include "lifetime_tracker.hpp"
 
+#include "imgui.h"
+#include "backends/imgui_impl_glfw.h"
+#include "backends/imgui_impl_vulkan.h"
+
 #include <GLFW/glfw3native.h>
 
 using namespace BG;
@@ -50,6 +54,107 @@ void BG::Renderer::InitVulkan()
   CreateCmdBuffers();
   CreateDescriptorPools();
   CreateSemaphore();
+}
+
+void BG::Renderer::InitImGui()
+{
+  ImGui::CreateContext();
+  ImGuiIO& io = ImGui::GetIO(); (void)io;
+  //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+  //io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+
+  // Setup Dear ImGui style
+  ImGui::StyleColorsDark();
+  //ImGui::StyleColorsClassic();
+
+  // Create Descriptor Pool
+  {
+    VkDescriptorPoolSize pool_sizes[] =
+    {
+        { VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
+        { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
+        { VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
+        { VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }
+    };
+    VkDescriptorPoolCreateInfo pool_info = {};
+    pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+    pool_info.maxSets = 1000 * IM_ARRAYSIZE(pool_sizes);
+    pool_info.poolSizeCount = (uint32_t)IM_ARRAYSIZE(pool_sizes);
+    pool_info.pPoolSizes = pool_sizes;
+    vkCreateDescriptorPool(m_device.get(), &pool_info, nullptr, &m_ImGuiDescPool);
+  }
+
+  // Create renderpass
+  {
+    std::vector<vk::AttachmentReference> attachmentRefs = { { 0, vk::ImageLayout::eColorAttachmentOptimal } };
+
+    std::vector<vk::SubpassDescription> subpass;
+    vk::SubpassDescription mainSubpass;
+    mainSubpass.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics);
+    mainSubpass.setColorAttachments(attachmentRefs);
+    subpass.push_back(mainSubpass);
+
+    vk::AttachmentDescription attachment;
+    attachment.format = m_swapchainFormat;
+    attachment.samples = vk::SampleCountFlagBits::e1;
+    attachment.initialLayout = vk::ImageLayout::ePresentSrcKHR;
+    attachment.finalLayout = vk::ImageLayout::ePresentSrcKHR;
+
+    attachment.loadOp = vk::AttachmentLoadOp::eLoad;
+    attachment.storeOp = vk::AttachmentStoreOp::eStore;
+    attachment.stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
+    attachment.stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
+
+    std::vector< vk::AttachmentDescription> attachments = { attachment };
+
+    m_ImGuiRenderPass = m_device->createRenderPassUnique({ {}, attachments, subpass });
+  }
+
+  // Create framebuffers
+  for (auto& imageView : m_swapchainImageViews)
+  {
+    vk::FramebufferCreateInfo framebufferInfo;
+    framebufferInfo.setRenderPass(m_ImGuiRenderPass.get());
+    framebufferInfo.setAttachmentCount(1);
+    framebufferInfo.setPAttachments(&imageView.get());
+    framebufferInfo.setWidth(m_width);
+    framebufferInfo.setHeight(m_height);
+    framebufferInfo.setLayers(1);
+
+    m_ImGuiFramebuffer.push_back(m_device->createFramebufferUnique(framebufferInfo));
+  }
+
+  // Setup Platform/Renderer backends
+  ImGui_ImplGlfw_InitForVulkan(m_window, true);
+  ImGui_ImplVulkan_InitInfo init_info = {};
+  init_info.Instance = m_instance.get();
+  init_info.PhysicalDevice = m_physicalDevice;
+  init_info.Device = m_device.get();
+  init_info.QueueFamily = m_selectedPhyDeviceQueueIndices.graphics;
+  init_info.Queue = m_graphcisQueue;
+  init_info.PipelineCache = nullptr;
+  init_info.DescriptorPool = m_ImGuiDescPool;
+  init_info.Allocator = nullptr;
+  init_info.MinImageCount = m_swapchainImages.size();
+  init_info.ImageCount = m_swapchainImages.size();
+  init_info.CheckVkResultFn = nullptr;
+  ImGui_ImplVulkan_Init(&init_info, m_ImGuiRenderPass.get());
+
+  m_ImGuiCmdBuffers[0]->begin(vk::CommandBufferBeginInfo{ {}, nullptr });
+  ImGui_ImplVulkan_CreateFontsTexture(m_ImGuiCmdBuffers[0].get());
+  m_ImGuiCmdBuffers[0]->end();
+
+  SubmitCmdBufferNow(m_ImGuiCmdBuffers[0].get(), true);
+
+  ImGui_ImplVulkan_DestroyFontUploadObjects();
 }
 
 void BG::Renderer::CreateInstance()
@@ -349,6 +454,7 @@ void BG::Renderer::CreateCmdBuffers()
   for (int i = 0; i < m_swapchainImages.size(); i++)
   {
     m_cmdBuffers.push_back(AllocCmdBuffer());
+    m_ImGuiCmdBuffers.push_back(AllocCmdBuffer());
   }
 }
 
@@ -385,6 +491,7 @@ BG::Renderer::Renderer(std::string name, bool enableValidationLayers)
 {
   InitWindow();
   InitVulkan();
+  InitImGui();
 
   m_textureSystem = std::make_shared<TextureSystem>(m_device.get(), *m_memoryAllocator, *this);
 }
@@ -429,6 +536,10 @@ void BG::Renderer::Run(std::function<void()> init, std::function<void(Context&)>
 
     m_tracker->NewFrame();
 
+    ImGui_ImplVulkan_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+
     float time = (std::chrono::steady_clock::now() - startTimeSteady).count() * 1e-9;
     Context ctx{
       CommandBuffer(m_device.get(), m_cmdBuffers[imageIndex].get(), *m_tracker),
@@ -438,13 +549,44 @@ void BG::Renderer::Run(std::function<void()> init, std::function<void(Context&)>
 
     render(ctx);
 
+    ImGui::Text("Last 100 frames took %fms", m_timeSpentLast100Frames * 1000.0);
+    ImGui::Text("FPS = %f", 100.0 / m_timeSpentLast100Frames);
+
+    ImGui::Render();
+    ImDrawData* draw_data = ImGui::GetDrawData();
+
+    {
+      auto cmdBuf = m_ImGuiCmdBuffers[imageIndex].get();
+
+      cmdBuf.begin(vk::CommandBufferBeginInfo{ {}, nullptr });
+
+      vk::ClearValue clearValue{};
+
+      vk::RenderPassBeginInfo info = {};
+      info.renderPass = m_ImGuiRenderPass.get();
+      info.framebuffer = m_ImGuiFramebuffer[imageIndex].get();
+      info.renderArea.extent.width = m_width;
+      info.renderArea.extent.height = m_height;
+      info.clearValueCount = 1;
+      info.pClearValues = &clearValue;
+
+      cmdBuf.beginRenderPass(info, vk::SubpassContents::eInline);
+
+      ImGui_ImplVulkan_RenderDrawData(draw_data, cmdBuf);
+
+      cmdBuf.endRenderPass();
+      cmdBuf.end();
+    }
+
     vk::SubmitInfo submitInfo;
 
     std::vector<vk::PipelineStageFlags> waitStages = { vk::PipelineStageFlagBits::eColorAttachmentOutput };
 
+    std::vector<vk::CommandBuffer> submitBuffers = { m_cmdBuffers[imageIndex].get(), m_ImGuiCmdBuffers[imageIndex].get() };
+
     submitInfo.setWaitSemaphores(m_imageAvailableSemaphores[ctx.currentFrame].get());
     submitInfo.setWaitDstStageMask(waitStages);
-    submitInfo.setCommandBuffers(m_cmdBuffers[imageIndex].get());
+    submitInfo.setCommandBuffers(submitBuffers);
     submitInfo.setSignalSemaphores(m_renderFinishedSemaphores[ctx.currentFrame].get());
 
     m_device->resetFences(1, &m_imagesInFlight[imageIndex]->get());
@@ -463,16 +605,17 @@ void BG::Renderer::Run(std::function<void()> init, std::function<void(Context&)>
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 
     frameCount++;
-    if (frameCount % 1000 == 999)
+    if (frameCount % 100 == 99)
     {
       auto now = std::chrono::high_resolution_clock::now();
-      double timeDiff = (now - startTime).count();
+      m_timeSpentLast100Frames = (now - startTime).count() * 1e-9;
       startTime = now;
-      spdlog::info("Frame {}, Last 1000 frames took {:.2f}ms, FPS={:.2f}", frameCount, timeDiff * 1e-6, 1000.0 * 1e9 / timeDiff);
     }
   }
 
   m_device->waitIdle();
+
+  m_device->destroyDescriptorPool(m_ImGuiDescPool);
 
   cleanup();
 }

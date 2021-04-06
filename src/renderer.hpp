@@ -41,6 +41,9 @@ namespace BG
 
     std::shared_ptr<BG::MemoryAllocator> m_memoryAllocator;
 
+    VkDescriptorPool m_ImGuiDescPool;
+    vk::UniqueRenderPass m_ImGuiRenderPass;
+
     struct {
       int graphics = -1, compute = -1, transfer = -1;
     } m_selectedPhyDeviceQueueIndices;
@@ -50,6 +53,7 @@ namespace BG
 
     void InitWindow();
     void InitVulkan();
+    void InitImGui();
     
     // Vulkan Initializations
     void CreateInstance();
@@ -64,11 +68,15 @@ namespace BG
 
     int m_width = 1280, m_height = 720;
 
+    double m_timeSpentLast100Frames = 1.0;
+
     std::vector<vk::UniqueSemaphore> m_imageAvailableSemaphores;
     std::vector<vk::UniqueSemaphore> m_renderFinishedSemaphores;
     std::vector<vk::UniqueFence> m_inFlightFences;
     std::vector<vk::UniqueFence*> m_imagesInFlight;
     std::vector<vk::UniqueCommandBuffer> m_cmdBuffers;
+    std::vector<vk::UniqueCommandBuffer> m_ImGuiCmdBuffers;
+    std::vector<vk::UniqueFramebuffer> m_ImGuiFramebuffer;
     std::vector<vk::UniqueDescriptorPool> m_descPools;
 
     const int MAX_FRAMES_IN_FLIGHT = 2;

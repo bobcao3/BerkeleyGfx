@@ -50,6 +50,11 @@ void BG::CommandBuffer::BindIndexBuffer(std::shared_ptr<BG::Buffer> buffer, size
   m_buf.bindIndexBuffer(buffer->buffer, offset, indexType);
 }
 
+void BG::CommandBuffer::PushConstants(Pipeline& p, vk::ShaderStageFlagBits stage, uint32_t offset, uint32_t size, const void* data)
+{
+  m_buf.pushConstants(p.GetLayout(), stage, offset, size, data);
+}
+
 void BG::CommandBuffer::BindGraphicsDescSets(Pipeline& p, vk::DescriptorSet descSet, int set)
 {
   m_buf.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, p.GetLayout(), set, 1, &descSet, 0, nullptr);

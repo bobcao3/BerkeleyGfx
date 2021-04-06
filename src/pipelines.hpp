@@ -41,6 +41,9 @@ namespace BG
     std::vector<vk::VertexInputBindingDescription> m_bindingDescriptions;
     std::vector<vk::VertexInputAttributeDescription> m_attributeDescriptions;
     std::vector<vk::DescriptorSetLayoutBinding> m_descSetLayoutBindings;
+    std::vector<vk::PushConstantRange> m_pushConstants;
+
+    std::vector<uint32_t> BuildProgramFromSrc(std::string shaders, int shaderType);
 
   public:
     void AddFragmentShaders(std::string shaders);
@@ -61,6 +64,8 @@ namespace BG
 
     void AddDescriptorUniform(int binding, vk::ShaderStageFlags stage, int count = 1);
     void AddDescriptorTexture(int binding, vk::ShaderStageFlags stage, int count = 1);
+
+    void AddPushConstant(uint32_t offset, uint32_t size, vk::ShaderStageFlags stage);
 
     void SetViewport(float width, float height, float x = 0.0, float y = 0.0, float minDepth = 0.0f, float maxDepth = 1.0f);
     void SetScissor(int x, int y, int width, int height);

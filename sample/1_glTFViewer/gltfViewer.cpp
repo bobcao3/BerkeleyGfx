@@ -9,6 +9,8 @@
 #include <fstream>
 #include <streambuf>
 
+#include <imgui.h>
+
 #include <glm/gtc/matrix_transform.hpp>
 
 // Import the tinyGlTF library to load glTF models
@@ -50,7 +52,6 @@ struct DrawCmd
 
 struct ShaderUniform
 {
-  glm::mat4 modelMtx;
   glm::mat4 viewProjMtx;
 };
 
@@ -247,6 +248,11 @@ int main(int, char**)
 
   BG::VertexBufferBinding vertexBinding;
 
+  // Camera control parameters
+  glm::vec3 cameraLookAt = glm::vec3(0.0);
+  float cameraOrbitRadius = 1.0;
+  float cameraOrbitHeight = 0.0;
+
   r.Run(
     // Init
     [&]() {
@@ -271,7 +277,7 @@ int main(int, char**)
       // Unmap the GPU buffer
       indexBuffer->UnMap();
 
-      uniformBuffer = r.getMemoryAllocator()->AllocCPU2GPU(sizeof(ShaderUniform) * r.getSwapchainImageViews().size() * drawObjects.size(), vk::BufferUsageFlagBits::eUniformBuffer);
+      uniformBuffer = r.getMemoryAllocator()->AllocCPU2GPU(sizeof(ShaderUniform) * r.getSwapchainImageViews().size(), vk::BufferUsageFlagBits::eUniformBuffer);
 
       // Create a empty pipline
       pipeline = r.CreatePipeline();
@@ -281,9 +287,8 @@ int main(int, char**)
       pipeline->AddAttribute(vertexBinding, 0, vk::Format::eR32G32B32Sfloat, offsetof(Vertex, pos));
       pipeline->AddAttribute(vertexBinding, 1, vk::Format::eR32G32B32Sfloat, offsetof(Vertex, color));
       pipeline->AddAttribute(vertexBinding, 2, vk::Format::eR32G32Sfloat, offsetof(Vertex, uv));
-      // Specify the uniform bindings
-      pipeline->AddDescriptorUniform(0, vk::ShaderStageFlagBits::eAllGraphics);
-      pipeline->AddDescriptorTexture(1, vk::ShaderStageFlagBits::eAllGraphics);
+      // Specify push constants
+      pipeline->AddPushConstant(0, sizeof(glm::mat4), vk::ShaderStageFlagBits::eVertex);
       // Add shaders
       pipeline->AddFragmentShaders(fragmentShader);
       pipeline->AddVertexShaders(vertexShader);
@@ -294,36 +299,33 @@ int main(int, char**)
       pipeline->AddDepthAttachment();
       // Build the pipeline
       pipeline->BuildPipeline();
-
-      int width = r.getWidth(), height = r.getHeight();
-
-      // Create a Framebuffer (specifications of the render targets) for each SwapChain image
-      int i = 0;
-      for (auto& imageView : r.getSwapchainImageViews())
-      {
-        std::vector<vk::ImageView> renderTarget{ imageView.get(), r.getDepthImageViews()[i].get() };
-        framebuffers.push_back(r.CreateFramebuffer(pipeline->GetRenderPass(), renderTarget, width, height));
-        i++;
-      }
     },
     // Render
     [&](Renderer::Context& ctx) {
       int width = r.getWidth(), height = r.getHeight();
 
-      viewMtx = glm::lookAt(glm::vec3(cos(ctx.time), cos(ctx.time * 0.5), sin(ctx.time)), glm::vec3(0.0), glm::vec3(0.0, 1.0, 0.0));
+      // Render a camera control GUI through ImGui
+      ImGui::Begin("Example Window");
+      ImGui::DragFloat3("Camera Look At", &cameraLookAt[0], 0.01);
+      ImGui::DragFloat("Camera Orbit Radius", &cameraOrbitRadius, 0.01);
+      ImGui::DragFloat("Camera Orbit Height", &cameraOrbitHeight, 0.01);
+      ImGui::End();
+
+      // Prepare uniform buffer (view & projection matrix)
+      viewMtx = glm::lookAt(glm::vec3(cos(ctx.time) * cameraOrbitRadius, cameraOrbitHeight, sin(ctx.time) * cameraOrbitRadius), cameraLookAt, glm::vec3(0.0, 1.0, 0.0));
       projMtx = glm::perspective(glm::radians(45.0f), float(width) / float(height), 0.1f, 10.0f);
       projMtx[1][1] *= -1.0;
 
+      // Map & upload the constants
       ShaderUniform* uniformBufferGPU = uniformBuffer->Map<ShaderUniform>();
-      int i = 0;
-      for (auto& drawCmd : drawObjects)
-      {
-        auto& uniform = uniformBufferGPU[ctx.imageIndex * drawObjects.size() + i];
-        uniform.modelMtx = drawCmd.transform;
-        uniform.viewProjMtx = projMtx * viewMtx;
-        i++;
-      }
+      auto& uniform = uniformBufferGPU[ctx.imageIndex];
+      uniform.viewProjMtx = projMtx * viewMtx;
       uniformBuffer->UnMap();
+
+      // Allocate descriptor sets & bind uniforms
+      auto descSet = pipeline->AllocDescSet(ctx.descPool);
+      pipeline->BindGraphicsUniformBuffer(*pipeline, descSet, uniformBuffer, sizeof(ShaderUniform) * ctx.imageIndex, sizeof(ShaderUniform), 0);
+      pipeline->BindGraphicsImageView(*pipeline, descSet, r.getTextureSystem()->GetImageView({ 0 }), vk::ImageLayout::eShaderReadOnlyOptimal, r.getTextureSystem()->GetSampler(), 1);
 
       // Begin & resets the command buffer
       ctx.cmdBuffer.Begin();
@@ -336,15 +338,14 @@ int main(int, char**)
         ctx.cmdBuffer.BindVertexBuffer(vertexBinding, vertexBuffer, 0);
         // Bind the index buffer
         ctx.cmdBuffer.BindIndexBuffer(indexBuffer, 0);
+        // Bind the descriptor sets (uniform buffer, texture, etc.)
+        ctx.cmdBuffer.BindGraphicsDescSets(*pipeline, descSet);
         // Draw objects
         int i = 0;
         for (auto& drawCmd : drawObjects)
         {
-          auto descSet = pipeline->AllocDescSet(ctx.descPool);
-          pipeline->BindGraphicsUniformBuffer(*pipeline, descSet, uniformBuffer, sizeof(ShaderUniform) * (ctx.imageIndex * drawObjects.size() + i), sizeof(ShaderUniform), 0);
-          pipeline->BindGraphicsImageView(*pipeline, descSet, r.getTextureSystem()->GetImageView({ 0 }), vk::ImageLayout::eShaderReadOnlyOptimal, r.getTextureSystem()->GetSampler(), 1);
-          ctx.cmdBuffer.BindGraphicsDescSets(*pipeline, descSet);
-
+          // Set the model matrix using "Push constant"
+          ctx.cmdBuffer.PushConstants(*pipeline, vk::ShaderStageFlagBits::eVertex, 0, drawCmd.transform);
           ctx.cmdBuffer.DrawIndexed(drawCmd.indexCount, drawCmd.firstIndex, drawCmd.vertexOffset);
           i++;
         }

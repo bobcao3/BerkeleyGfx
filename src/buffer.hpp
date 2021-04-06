@@ -26,9 +26,6 @@ namespace BG
     std::shared_ptr<Image> AllocImage2D(
       glm::uvec2 extent, int mipLevels, vk::Format format, vk::ImageUsageFlags usage,
       vk::ImageLayout layout = vk::ImageLayout::eUndefined, VmaMemoryUsage memoryUsage = VMA_MEMORY_USAGE_GPU_ONLY);
-
-    // Transient allocation
-
   };
 
   class Buffer
