@@ -94,6 +94,8 @@ std::vector<uint32_t> BG::Pipeline::BuildProgramFromSrc(std::string shaders, int
   {
     auto binding = program.getUniformBinding(i);
     auto type = program.getUniformTType(i);
+    
+    spdlog::debug("Uniform variable binding={}", binding);
 
     if (binding >= 0) BindDescriptorReflection(*this, binding, type, stage);
   }
@@ -102,6 +104,8 @@ std::vector<uint32_t> BG::Pipeline::BuildProgramFromSrc(std::string shaders, int
   {
     auto binding = program.getUniformBlockBinding(i);
     auto type = program.getUniformBlockTType(i);
+    
+    spdlog::debug("Uniform block binding={}", binding);
 
     if (binding >= 0) BindDescriptorReflection(*this, binding, type, stage);
   }

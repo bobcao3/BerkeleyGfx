@@ -73,6 +73,11 @@ target_compile_definitions(SampleGlTFViewer PUBLIC SRC_DIR="${CMAKE_SOURCE_DIR}"
 target_link_libraries(SampleGlTFViewer PUBLIC BerkeleyGfx)
 target_include_directories(SampleGlTFViewer PUBLIC ${BerkeleyGfx_INCLUDE})
 
+add_executable(SampleTerrain "sample/2_terrain/terrain.cpp")
+target_compile_definitions(SampleTerrain PUBLIC SRC_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(SampleTerrain PUBLIC BerkeleyGfx)
+target_include_directories(SampleTerrain PUBLIC ${BerkeleyGfx_INCLUDE})
+
 # Set default project when generating a solution file
 
 set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT SampleHelloTriangle)

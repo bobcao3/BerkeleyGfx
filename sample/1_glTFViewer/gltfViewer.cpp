@@ -58,8 +58,6 @@ struct ShaderUniform
 glm::mat4 viewMtx;
 glm::mat4 projMtx;
 
-
-
 // List of draw commands
 std::vector<DrawCmd> drawObjects;
 
@@ -239,9 +237,6 @@ int main(int, char**)
   Pipeline::InitBackend();
 
   std::shared_ptr<Pipeline> pipeline;
-
-  // Our framebuffers (see triangle.cpp for explainations)
-  std::vector<vk::UniqueFramebuffer> framebuffers;
 
   // Our GPU buffers holding the vertices and the indices
   std::shared_ptr<Buffer> vertexBuffer, indexBuffer, uniformBuffer;

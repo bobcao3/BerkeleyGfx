@@ -19,3 +19,6 @@
 [submodule "ext/tinygltf"]
 	path = ext/tinygltf
 	url = https://github.com/syoyo/tinygltf
+[submodule "ext/stb"]
+	path = ext/stb
+	url = https://github.com/nothings/stb
