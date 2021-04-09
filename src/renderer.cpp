@@ -13,18 +13,11 @@
 
 using namespace BG;
 
-static VKAPI_ATTR VkBool32 VKAPI_CALL STATIC_DebugCallback(
+extern VKAPI_ATTR VkBool32 VKAPI_CALL STATIC_DebugCallback(
   VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
   VkDebugUtilsMessageTypeFlagsEXT messageType,
   const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
-  void* pUserData) {
-
-  spdlog::error("validation layer: {}", pCallbackData->pMessage);
-
-  throw std::runtime_error("Vulkan Validation Error");
-
-  return VK_FALSE;
-}
+  void* pUserData);
 
 void BG::Renderer::InitWindow()
 {
@@ -447,6 +440,7 @@ void BG::Renderer::CreateSwapChain()
 void BG::Renderer::CreateCmdPools()
 {
   m_graphicsCmdPool = m_device->createCommandPoolUnique({ vk::CommandPoolCreateFlagBits::eResetCommandBuffer, uint32_t(m_selectedPhyDeviceQueueIndices.graphics) });
+  m_guiCmdPool = m_device->createCommandPoolUnique({ vk::CommandPoolCreateFlagBits::eResetCommandBuffer, uint32_t(m_selectedPhyDeviceQueueIndices.graphics) });
 }
 
 void BG::Renderer::CreateCmdBuffers()
@@ -454,7 +448,7 @@ void BG::Renderer::CreateCmdBuffers()
   for (int i = 0; i < m_swapchainImages.size(); i++)
   {
     m_cmdBuffers.push_back(AllocCmdBuffer());
-    m_ImGuiCmdBuffers.push_back(AllocCmdBuffer());
+    m_ImGuiCmdBuffers.push_back(std::move(m_device->allocateCommandBuffersUnique({ m_guiCmdPool.get(), vk::CommandBufferLevel::ePrimary, 1 })[0]));
   }
 }
 
@@ -501,12 +495,67 @@ BG::Renderer::~Renderer()
   glfwTerminate();
 }
 
-void BG::Renderer::Run(std::function<void()> init, std::function<void(Context&)> render, std::function<void()> cleanup)
+void BG::Renderer::Run(std::function<void()> init, std::function<void(Context&)> render, std::function<void()> renderGUI, std::function<void()> cleanup)
 {
   init();
 
   int imageIndex = 0;
   size_t currentFrame = 0;
+
+  std::mutex m;
+  std::condition_variable cv;
+  bool ready = false;
+  bool processed = false;
+
+  std::thread guiThread([&] {
+    while (m_isRunning)
+    {
+      // Wait until main thread starts new frame
+      std::unique_lock<std::mutex> lk(m);
+      cv.wait(lk, [&] { return ready; });
+      ready = false;
+
+      ImGui_ImplVulkan_NewFrame();
+      
+      ImGui::NewFrame();
+
+      renderGUI();
+
+      ImGui::Text("Last 100 frames took %fms", m_timeSpentLast100Frames * 1000.0);
+      ImGui::Text("FPS = %f", 100.0 / m_timeSpentLast100Frames);
+
+      ImGui::Render();
+      ImDrawData* draw_data = ImGui::GetDrawData();
+
+      {
+        auto cmdBuf = m_ImGuiCmdBuffers[imageIndex].get();
+
+        cmdBuf.begin(vk::CommandBufferBeginInfo{ {}, nullptr });
+
+        vk::ClearValue clearValue{};
+
+        vk::RenderPassBeginInfo info = {};
+        info.renderPass = m_ImGuiRenderPass.get();
+        info.framebuffer = m_ImGuiFramebuffer[imageIndex].get();
+        info.renderArea.extent.width = m_width;
+        info.renderArea.extent.height = m_height;
+        info.clearValueCount = 1;
+        info.pClearValues = &clearValue;
+
+        cmdBuf.beginRenderPass(info, vk::SubpassContents::eInline);
+
+        ImGui_ImplVulkan_RenderDrawData(draw_data, cmdBuf);
+
+        cmdBuf.endRenderPass();
+        cmdBuf.end();
+      }
+
+      // GUI finished processing
+      processed = true;
+      lk.unlock();
+      cv.notify_one();
+    }
+    });
 
   size_t frameCount = 0;
   auto startTime = std::chrono::high_resolution_clock::now();
@@ -532,51 +581,35 @@ void BG::Renderer::Run(std::function<void()> init, std::function<void(Context&)>
 
     m_imagesInFlight[imageIndex] = &m_inFlightFences[currentFrame];
 
+    // Trigger GUI thread (GLFW is single threaded, therefore glfw related setup must be on main thread)
+    ImGui_ImplGlfw_NewFrame();
+    {
+      std::lock_guard<std::mutex> lk(m);
+      ready = true;
+    }
+    cv.notify_one();
+
+    // Begin new frame on main thread
     m_device->resetDescriptorPool(m_descPools[imageIndex].get());
 
     m_tracker->NewFrame();
-
-    ImGui_ImplVulkan_NewFrame();
-    ImGui_ImplGlfw_NewFrame();
-    ImGui::NewFrame();
 
     float time = (std::chrono::steady_clock::now() - startTimeSteady).count() * 1e-9;
     Context ctx{
       CommandBuffer(m_device.get(), m_cmdBuffers[imageIndex].get(), *m_tracker),
       m_descPools[imageIndex].get(),
       m_swapchainImageViews[imageIndex].get(), m_depthImageViews[imageIndex].get(),
+      m_swapchainImages[imageIndex],
       imageIndex, currentFrame, time };
 
     render(ctx);
 
-    ImGui::Text("Last 100 frames took %fms", m_timeSpentLast100Frames * 1000.0);
-    ImGui::Text("FPS = %f", 100.0 / m_timeSpentLast100Frames);
-
-    ImGui::Render();
-    ImDrawData* draw_data = ImGui::GetDrawData();
-
+    // wait for the GUI thread
     {
-      auto cmdBuf = m_ImGuiCmdBuffers[imageIndex].get();
-
-      cmdBuf.begin(vk::CommandBufferBeginInfo{ {}, nullptr });
-
-      vk::ClearValue clearValue{};
-
-      vk::RenderPassBeginInfo info = {};
-      info.renderPass = m_ImGuiRenderPass.get();
-      info.framebuffer = m_ImGuiFramebuffer[imageIndex].get();
-      info.renderArea.extent.width = m_width;
-      info.renderArea.extent.height = m_height;
-      info.clearValueCount = 1;
-      info.pClearValues = &clearValue;
-
-      cmdBuf.beginRenderPass(info, vk::SubpassContents::eInline);
-
-      ImGui_ImplVulkan_RenderDrawData(draw_data, cmdBuf);
-
-      cmdBuf.endRenderPass();
-      cmdBuf.end();
+      std::unique_lock<std::mutex> lk(m);
+      cv.wait(lk, [&] { return processed; });
     }
+    processed = false;
 
     vk::SubmitInfo submitInfo;
 
@@ -612,6 +645,16 @@ void BG::Renderer::Run(std::function<void()> init, std::function<void(Context&)>
       startTime = now;
     }
   }
+
+  m_isRunning = false;
+
+  {
+    std::lock_guard<std::mutex> lk(m);
+    ready = true;
+  }
+  cv.notify_one();
+
+  guiThread.join();
 
   m_device->waitIdle();
 

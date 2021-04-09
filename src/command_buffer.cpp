@@ -75,7 +75,7 @@ vk::AccessFlags getAccessFlags(vk::ImageLayout layout, bool read)
   case vk::ImageLayout::eDepthStencilReadOnlyOptimal:
     return vk::AccessFlagBits::eDepthStencilAttachmentRead;
   case vk::ImageLayout::eShaderReadOnlyOptimal:
-    return vk::AccessFlagBits::eShaderRead;
+    return read ? vk::AccessFlagBits::eMemoryRead : vk::AccessFlagBits::eMemoryWrite;
   case vk::ImageLayout::eTransferSrcOptimal:
     return vk::AccessFlagBits::eTransferRead;
   case vk::ImageLayout::eTransferDstOptimal:
@@ -107,20 +107,29 @@ vk::AccessFlags getAccessFlags(vk::ImageLayout layout, bool read)
 
 void BG::CommandBuffer::ImageTransition(std::shared_ptr<BG::Image> image, vk::PipelineStageFlags fromStage, vk::PipelineStageFlags toStage, vk::ImageLayout oldLayout, vk::ImageLayout newLayout, int baseMip, int levels, int baseLayer, int layers)
 {
+  vk::ImageAspectFlags aspect = vk::ImageAspectFlagBits(0);
+  if (image->HasColorPlane()) aspect |= vk::ImageAspectFlagBits::eColor;
+  if (image->HasDepthPlane()) aspect |= vk::ImageAspectFlagBits::eDepth;
+
+  ImageTransition(image->image, fromStage, toStage, oldLayout, newLayout, aspect, baseMip, levels, baseLayer, layers);
+}
+
+void BG::CommandBuffer::ImageTransition(vk::Image image, vk::PipelineStageFlags fromStage, vk::PipelineStageFlags toStage, vk::ImageLayout oldLayout, vk::ImageLayout newLayout, vk::ImageAspectFlags aspect, int baseMip, int levels, int baseLayer, int layers)
+{
+
   vk::ImageMemoryBarrier barrierToTransfer;
   barrierToTransfer.oldLayout = oldLayout;
   barrierToTransfer.newLayout = newLayout;
   barrierToTransfer.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
   barrierToTransfer.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-  barrierToTransfer.image = image->image;
-  if (image->HasColorPlane()) barrierToTransfer.subresourceRange.aspectMask |= vk::ImageAspectFlagBits::eColor;
-  if (image->HasDepthPlane()) barrierToTransfer.subresourceRange.aspectMask |= vk::ImageAspectFlagBits::eDepth;
+  barrierToTransfer.image = image;
+  barrierToTransfer.subresourceRange.aspectMask = aspect;
   barrierToTransfer.subresourceRange.baseMipLevel = baseMip;
   barrierToTransfer.subresourceRange.levelCount = levels;
   barrierToTransfer.subresourceRange.baseArrayLayer = baseLayer;
   barrierToTransfer.subresourceRange.layerCount = layers;
-  barrierToTransfer.srcAccessMask = getAccessFlags(oldLayout, true);
-  barrierToTransfer.dstAccessMask = getAccessFlags(newLayout, false);
+  barrierToTransfer.srcAccessMask = getAccessFlags(oldLayout, false);
+  barrierToTransfer.dstAccessMask = getAccessFlags(newLayout, true);
 
   m_buf.pipelineBarrier(fromStage, toStage, vk::DependencyFlags(0), 0, nullptr, 0, nullptr, 1, &barrierToTransfer);
 }

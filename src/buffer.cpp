@@ -73,6 +73,11 @@ std::shared_ptr<BG::Image> BG::MemoryAllocator::AllocImage2D(glm::uvec2 extent, 
   return std::make_shared<BG::Image>(allocator, image, allocation);
 }
 
+BG::Image::Image(VmaAllocator& allocator, vk::Image image)
+  : allocator(allocator), image(image)
+{
+}
+
 BG::Image::Image(VmaAllocator& allocator, vk::Image image, VmaAllocation allocation, bool color, bool depth)
   : allocator(allocator), image(image), allocation(allocation), colorPlane(color), depthPlane(depth)
 {

@@ -44,6 +44,13 @@ namespace BG
       vk::ImageLayout oldLayout, vk::ImageLayout newLayout,
       int baseMip = 0, int levels = 1, int baseLayer = 0, int layers = 1);
 
+    void ImageTransition(
+      vk::Image image,
+      vk::PipelineStageFlags fromStage, vk::PipelineStageFlags toStage,
+      vk::ImageLayout oldLayout, vk::ImageLayout newLayout,
+      vk::ImageAspectFlags aspect,
+      int baseMip = 0, int levels = 1, int baseLayer = 0, int layers = 1);
+
     void WithRenderPass(
       Pipeline& p,
       vk::Framebuffer& frameBuffer,

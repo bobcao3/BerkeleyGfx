@@ -19,6 +19,7 @@ set(BerkeleyGfx_SRC
   src/buffer.cpp
   src/texture_system.cpp
   src/lifetime_tracker.cpp
+  src/static_callbacks.cpp
 
   ext/imgui/imgui.cpp
   ext/imgui/imgui_draw.cpp
@@ -77,6 +78,12 @@ add_executable(SampleTerrain "sample/2_terrain/terrain.cpp")
 target_compile_definitions(SampleTerrain PUBLIC SRC_DIR="${CMAKE_SOURCE_DIR}")
 target_link_libraries(SampleTerrain PUBLIC BerkeleyGfx)
 target_include_directories(SampleTerrain PUBLIC ${BerkeleyGfx_INCLUDE})
+
+add_executable(SampleShaderGraph "sample/3_shaderGraph/shaderGraph.cpp")
+target_compile_definitions(SampleShaderGraph PUBLIC SRC_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(SampleShaderGraph PUBLIC BerkeleyGfx)
+target_include_directories(SampleShaderGraph PUBLIC ${BerkeleyGfx_INCLUDE})
+set_property(TARGET SampleShaderGraph PROPERTY CXX_STANDARD 17)
 
 # Set default project when generating a solution file
 

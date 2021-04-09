@@ -121,6 +121,9 @@ int main(int, char**)
 
       // After this callback ends, the renderer will submit the recorded commands, and present the image when it's rendered
     },
+    // Render GUI
+    []() {
+    },
     // Cleanup
     [&]() {
 

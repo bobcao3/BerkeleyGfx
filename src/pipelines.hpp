@@ -44,6 +44,8 @@ namespace BG
     std::vector<vk::PushConstantRange> m_pushConstants;
 
     std::vector<uint32_t> BuildProgramFromSrc(std::string shaders, int shaderType);
+    
+    std::unordered_map<std::string, uint32_t> m_name2bindings;
 
   public:
     void AddFragmentShaders(std::string shaders);
@@ -61,6 +63,8 @@ namespace BG
     }
 
     void AddAttribute(VertexBufferBinding binding, int location, vk::Format format, size_t offset);
+
+    int GetBindingByName(std::string name);
 
     void AddDescriptorUniform(int binding, vk::ShaderStageFlags stage, int count = 1);
     void AddDescriptorTexture(int binding, vk::ShaderStageFlags stage, int count = 1);

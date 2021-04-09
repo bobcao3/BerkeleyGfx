@@ -56,6 +56,7 @@ namespace BG
     vk::Image image;
     VmaAllocation allocation;
 
+    Image(VmaAllocator& allocator, vk::Image image);
     Image(VmaAllocator& allocator, vk::Image image, VmaAllocation allocation, bool color = true, bool depth = false);
     ~Image();
 

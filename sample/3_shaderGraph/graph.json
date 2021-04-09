@@ -1,0 +1,29 @@
+{
+  "stages": {
+    "final": {
+      "shader": "final_tonemap.glsl",
+      "output": [ "framebuffer" ],
+      "textures": [ "output0" ]
+    },
+    "stage0": {
+      "shader": "sample_shader.glsl",
+      "output": [ "output0" ],
+      "parameters": [
+        {
+          "name": "radius",
+          "type": "float",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 0.15
+        },
+        {
+          "name": "innerColor",
+          "type": "vec3",
+          "min": [ 0.0, 0.0, 0.0 ],
+          "max": [ 1.0, 1.0, 1.0 ],
+          "default": [ 0.2, 0.3, 0.7 ]
+        }
+      ]
+    }
+  }
+}

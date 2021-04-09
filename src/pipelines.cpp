@@ -53,6 +53,7 @@ std::vector<uint32_t> BG::Pipeline::BuildProgramFromSrc(std::string shaders, int
 
   Resources.maxDrawBuffers = true;
   Resources.limits.generalVariableIndexing = true;
+  Resources.limits.nonInductiveForLoops = true;
 
   EShMessages messages = (EShMessages)(EShMsgSpvRules | EShMsgVulkanRules);
 
@@ -73,7 +74,7 @@ std::vector<uint32_t> BG::Pipeline::BuildProgramFromSrc(std::string shaders, int
 
   program.buildReflection();
 
-  spdlog::info("Shader has {} uniform blocks, {} uniform variables", program.getNumUniformBlocks(), program.getNumUniformVariables());
+  spdlog::debug("Shader has {} uniform blocks, {} uniform variables", program.getNumUniformBlocks(), program.getNumUniformVariables());
 
   vk::ShaderStageFlags stage;
 
@@ -95,9 +96,13 @@ std::vector<uint32_t> BG::Pipeline::BuildProgramFromSrc(std::string shaders, int
     auto binding = program.getUniformBinding(i);
     auto type = program.getUniformTType(i);
     
-    spdlog::debug("Uniform variable binding={}", binding);
+    spdlog::debug("Uniform variable `{}` binding={}", program.getUniformName(i), binding);
 
-    if (binding >= 0) BindDescriptorReflection(*this, binding, type, stage);
+    if (binding >= 0)
+    {
+      this->m_name2bindings[program.getUniformName(i)] = binding;
+      BindDescriptorReflection(*this, binding, type, stage);
+    }
   }
 
   for (int i = 0; i < program.getNumUniformBlocks(); i++)
@@ -105,9 +110,13 @@ std::vector<uint32_t> BG::Pipeline::BuildProgramFromSrc(std::string shaders, int
     auto binding = program.getUniformBlockBinding(i);
     auto type = program.getUniformBlockTType(i);
     
-    spdlog::debug("Uniform block binding={}", binding);
+    spdlog::debug("Uniform block `{}` binding={}", program.getUniformBlockName(i), binding);
 
-    if (binding >= 0) BindDescriptorReflection(*this, binding, type, stage);
+    if (binding >= 0)
+    {
+      this->m_name2bindings[program.getUniformBlockName(i)] = binding;
+      BindDescriptorReflection(*this, binding, type, stage);
+    }
   }
 
   return BuildSPIRV(program, shaderType);
@@ -149,6 +158,12 @@ void BG::Pipeline::AddAttribute(VertexBufferBinding binding, int location, vk::F
   desc.setOffset(offset);
 
   m_attributeDescriptions.push_back(desc);
+}
+
+int BG::Pipeline::GetBindingByName(std::string name)
+{
+  if (m_name2bindings.find(name) == m_name2bindings.end()) return -1;
+  return m_name2bindings[name];
 }
 
 void BG::Pipeline::AddDescriptorUniform(int binding, vk::ShaderStageFlags stage, int count)
@@ -268,7 +283,7 @@ void BG::Pipeline::BuildPipeline()
   vk::SubpassDescription mainSubpass;
   mainSubpass.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics);
   mainSubpass.setColorAttachments(attachments);
-  mainSubpass.setPDepthStencilAttachment(&depthAttachmentRef);
+  if (m_useDepthAttachment) mainSubpass.setPDepthStencilAttachment(&depthAttachmentRef);
   subpass.push_back(mainSubpass);
 
   if (m_useDepthAttachment)

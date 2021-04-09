@@ -299,13 +299,6 @@ int main(int, char**)
     [&](Renderer::Context& ctx) {
       int width = r.getWidth(), height = r.getHeight();
 
-      // Render a camera control GUI through ImGui
-      ImGui::Begin("Example Window");
-      ImGui::DragFloat3("Camera Look At", &cameraLookAt[0], 0.01);
-      ImGui::DragFloat("Camera Orbit Radius", &cameraOrbitRadius, 0.01);
-      ImGui::DragFloat("Camera Orbit Height", &cameraOrbitHeight, 0.01);
-      ImGui::End();
-
       // Prepare uniform buffer (view & projection matrix)
       viewMtx = glm::lookAt(glm::vec3(cos(ctx.time) * cameraOrbitRadius, cameraOrbitHeight, sin(ctx.time) * cameraOrbitRadius), cameraLookAt, glm::vec3(0.0, 1.0, 0.0));
       projMtx = glm::perspective(glm::radians(45.0f), float(width) / float(height), 0.1f, 10.0f);
@@ -349,6 +342,15 @@ int main(int, char**)
       ctx.cmdBuffer.End();
 
       // After this callback ends, the renderer will submit the recorded commands, and present the image when it's rendered
+    },
+    // GUI Thread
+    [&]() {
+      // Render a camera control GUI through ImGui
+      ImGui::Begin("Example Window");
+      ImGui::DragFloat3("Camera Look At", &cameraLookAt[0], 0.01);
+      ImGui::DragFloat("Camera Orbit Radius", &cameraOrbitRadius, 0.01);
+      ImGui::DragFloat("Camera Orbit Height", &cameraOrbitHeight, 0.01);
+      ImGui::End();
     },
     // Cleanup
     [&]() {

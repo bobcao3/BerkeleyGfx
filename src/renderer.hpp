@@ -19,6 +19,8 @@ namespace BG
   private:
     GLFWwindow* m_window;
 
+    bool m_isRunning = true;
+
     vk::UniqueInstance                 m_instance;
     vk::DispatchLoaderDynamic          m_dispatcher;
     DUniqueDebugUtilsMessengerEXT      m_debugMessenger;
@@ -38,6 +40,7 @@ namespace BG
     vk::Queue                          m_transferQueue;
 
     vk::UniqueCommandPool              m_graphicsCmdPool;
+    vk::UniqueCommandPool              m_guiCmdPool;
 
     std::shared_ptr<BG::MemoryAllocator> m_memoryAllocator;
 
@@ -93,6 +96,7 @@ namespace BG
       vk::DescriptorPool descPool;
       vk::ImageView imageView;
       vk::ImageView depthImageView;
+      vk::Image image;
       int imageIndex;
       int currentFrame;
       float time;
@@ -106,13 +110,15 @@ namespace BG
     int getWidth();
     int getHeight();
 
-    std::shared_ptr<BG::MemoryAllocator> getMemoryAllocator() { return m_memoryAllocator; };
-    std::shared_ptr<BG::TextureSystem> getTextureSystem() { return m_textureSystem; };
-    BG::Tracker& getTracker() { return *m_tracker; }
+    inline std::shared_ptr<BG::MemoryAllocator> getMemoryAllocator() { return m_memoryAllocator; };
+    inline std::shared_ptr<BG::TextureSystem> getTextureSystem() { return m_textureSystem; };
+    inline BG::Tracker& getTracker() { return *m_tracker; }
 
-    std::vector<vk::Image>& getSwapchainImages() { return m_swapchainImages; };
-    std::vector<vk::UniqueImageView>& getSwapchainImageViews() { return m_swapchainImageViews; };
-    std::vector<vk::UniqueImageView>& getDepthImageViews() { return m_depthImageViews; };
+    inline std::vector<vk::Image>& getSwapchainImages() { return m_swapchainImages; };
+    inline std::vector<vk::UniqueImageView>& getSwapchainImageViews() { return m_swapchainImageViews; };
+    inline std::vector<vk::UniqueImageView>& getDepthImageViews() { return m_depthImageViews; };
+
+    inline vk::Device getDevice() { return m_device.get(); }
 
     vk::Format getSwapChainFormat();
 
@@ -123,6 +129,6 @@ namespace BG
 
     void SubmitCmdBufferNow(vk::CommandBuffer buf, bool wait = true);
 
-    void Run(std::function<void()> init, std::function<void(Context&)> render, std::function<void()> cleanup);
+    void Run(std::function<void()> init, std::function<void(Context&)> render, std::function<void()> renderGUI, std::function<void()> cleanup);
   };
 }
