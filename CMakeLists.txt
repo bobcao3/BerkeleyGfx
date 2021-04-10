@@ -27,6 +27,8 @@ set(BerkeleyGfx_SRC
   ext/imgui/imgui_widgets.cpp
   ext/imgui/backends/imgui_impl_glfw.cpp
   ext/imgui/backends/imgui_impl_vulkan.cpp
+
+  ext/SPIRV-Reflect/spirv_reflect.c
 )
 
 add_library(BerkeleyGfx ${BerkeleyGfx_SRC})
@@ -57,6 +59,7 @@ set(BerkeleyGfx_INCLUDE
   ext/spdlog/include
   ext/VulkanMemoryAllocator/src
   ext/tinygltf
+  ext/SPRIV-Reflect
   ext/
   src
 )

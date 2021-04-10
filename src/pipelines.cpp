@@ -4,6 +4,8 @@
 #include <glslang/Public/ShaderLang.h>
 #include <SPIRV/GlslangToSpv.h>
 
+#include <SPIRV-Reflect/spirv_reflect.h>
+
 using namespace BG;
 
 std::vector<uint32_t> BuildSPIRV(glslang::TProgram& program, EShLanguage shaderType)
@@ -19,14 +21,14 @@ std::vector<uint32_t> BuildSPIRV(glslang::TProgram& program, EShLanguage shaderT
   return spirv;
 }
 
-void BindDescriptorReflection(Pipeline& p, int binding, const glslang::TType* type, vk::ShaderStageFlags stage)
+void BindDescriptorReflection(Pipeline& p, int binding, SpvReflectDescriptorType type, vk::ShaderStageFlags stage)
 {
-  if (type->isStruct())
+  if (type == SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
   {
     spdlog::debug("Descriptor: binding = {}, Uniform Buffer", binding);
     p.AddDescriptorUniform(binding, stage);
   }
-  else if (type->isTexture())
+  else if (type == SPV_REFLECT_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
   {
     spdlog::debug("Descriptor: binding = {}, Texture / Combined Sampler", binding);
     p.AddDescriptorTexture(binding, stage);
@@ -71,19 +73,21 @@ std::vector<uint32_t> BG::Pipeline::BuildProgramFromSrc(std::string shaders, int
   {
     spdlog::error("Link failed");
   }
+  
+  auto spirv = BuildSPIRV(program, shaderType);
 
-  program.buildReflection();
-
-  spdlog::debug("Shader has {} uniform blocks, {} uniform variables", program.getNumUniformBlocks(), program.getNumUniformVariables());
+  SpvReflectShaderModule module;
+  SpvReflectResult result = spvReflectCreateShaderModule(spirv.size() * sizeof(uint32_t), spirv.data(), &module);
+  assert(result == SPV_REFLECT_RESULT_SUCCESS);
 
   vk::ShaderStageFlags stage;
 
-  switch (shaderType)
+  switch (module.shader_stage)
   {
-  case (EShLangFragment):
+  case (SPV_REFLECT_SHADER_STAGE_FRAGMENT_BIT):
     stage = vk::ShaderStageFlagBits::eFragment;
     break;
-  case (EShLangVertex):
+  case (SPV_REFLECT_SHADER_STAGE_VERTEX_BIT):
     stage = vk::ShaderStageFlagBits::eVertex;
     break;
   default:
@@ -91,35 +95,33 @@ std::vector<uint32_t> BG::Pipeline::BuildProgramFromSrc(std::string shaders, int
     break;
   }
 
-  for (int i = 0; i < program.getNumUniformVariables(); i++)
+  for (int i = 0; i < module.descriptor_binding_count; i++)
   {
-    auto binding = program.getUniformBinding(i);
-    auto type = program.getUniformTType(i);
-    
-    spdlog::debug("Uniform variable `{}` binding={}", program.getUniformName(i), binding);
+    SpvReflectDescriptorBinding& binding = module.descriptor_bindings[i];
 
-    if (binding >= 0)
+    if (std::string(binding.name) != "")
     {
-      this->m_name2bindings[program.getUniformName(i)] = binding;
-      BindDescriptorReflection(*this, binding, type, stage);
+      spdlog::debug("Descriptor name {}", binding.name);
+      this->m_name2bindings[binding.name] = binding.binding;
     }
+
+    if (binding.block.members != nullptr)
+    {
+      for (int j = 0; j < binding.block.member_count; j++)
+      {
+        auto& member = binding.block.members[j];
+
+        spdlog::debug("Member variable name {}", member.name);
+        this->m_name2bindings[member.name] = binding.binding;
+      }
+    }
+
+    BindDescriptorReflection(*this, binding.binding, binding.descriptor_type, stage);
   }
 
-  for (int i = 0; i < program.getNumUniformBlocks(); i++)
-  {
-    auto binding = program.getUniformBlockBinding(i);
-    auto type = program.getUniformBlockTType(i);
-    
-    spdlog::debug("Uniform block `{}` binding={}", program.getUniformBlockName(i), binding);
+  spvReflectDestroyShaderModule(&module);
 
-    if (binding >= 0)
-    {
-      this->m_name2bindings[program.getUniformBlockName(i)] = binding;
-      BindDescriptorReflection(*this, binding, type, stage);
-    }
-  }
-
-  return BuildSPIRV(program, shaderType);
+  return spirv;
 }
 
 vk::UniqueShaderModule BG::Pipeline::AddShaders(std::string shaders, int shaderType)

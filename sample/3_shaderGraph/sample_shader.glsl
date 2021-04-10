@@ -13,50 +13,84 @@ layout(binding = 0) uniform BuiltinConstants
   float iFrame;
 };
 
+layout(binding = 3) uniform sampler2D previous_output0;
+
 // From shadertoy:
 
-// The MIT License
-// Copyright © 2015 Inigo Quilez
-// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+// Created by inigo quilez - iq/2016
+// License Creative Commons Attribution-NonCommercial-ShareAlike 3.0
 
-// Signed distance to a 2D cross. Produces exact interior distance,
-// which doing the union of two rectangle SDFs doesn't. Also, it's cheaper,
-// it's a single square root instead of two. Win Win!
 
-// List of some other 2D distances: https://www.shadertoy.com/playlist/MXdSRf
+// Conway's Game of Life - http://www.iquilezles.org/www/articles/gameoflife/gameoflife.htm
 //
-// and www.iquilezles.org/www/articles/distfunctions2d/distfunctions2d.htm
+// State based simulation. Buffer A contains the simulated world, and it reads and writes to
+// itself to perform the simulation.
+//
+// I implemented three variants of the algorithm with different interpretations
 
+// VARIANT = 0: traditional
+// VARIANT = 1: box fiter
+// VARIANT = 2: high pass filter
 
-float sdCross( in vec2 p, in vec2 b, float r ) 
+#define VARIANT 0
+
+#define iChannel0 previous_output0
+
+int Cell( in ivec2 p )
 {
-  p = abs(p); p = (p.y>p.x) ? p.yx : p.xy;
+    // do wrapping
+    ivec2 r = ivec2(textureSize(iChannel0, 0));
+    p = (p+r) % r;
     
-	vec2  q = p - b;
-  float k = max(q.y,q.x);
-  vec2  w = (k>0.0) ? q : vec2(b.y-p.x,-k);
-    
-  return sign(k)*length(max(w,0.0)) + r;
+    // fetch texel
+    return (texelFetch(iChannel0, p, 0 ).x > 0.5 ) ? 1 : 0;
+}
+
+float hash1( float n )
+{
+    return fract(sin(n)*138.5453123);
 }
 
 void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
-	vec2 p = (2.0*fragCoord.xy-iResolution.xy)/iResolution.y;
+    ivec2 px = ivec2( fragCoord );
+    
+#if VARIANT==0
+	int k =   Cell(px+ivec2(-1,-1)) + Cell(px+ivec2(0,-1)) + Cell(px+ivec2(1,-1))
+            + Cell(px+ivec2(-1, 0))                        + Cell(px+ivec2(1, 0))
+            + Cell(px+ivec2(-1, 1)) + Cell(px+ivec2(0, 1)) + Cell(px+ivec2(1, 1));
 
-  // size
-	vec2 si = 0.5 + 0.3*cos( iTime + vec2(0.0,1.57) ); if( si.x<si.y ) si=si.yx;
-    
-  // corner radious
-  float ra = 0.1*sin(iTime*1.2);
-    
-	float d = sdCross( p, si, ra );
-    
-  vec3 col = vec3(1.0) - sign(d)*vec3(0.1,0.4,0.7);
-	col *= 1.0 - exp(-3.0*abs(d));
-	col *= 0.8 + 0.2*cos(150.0*d);
-	col = mix( col, vec3(1.0), 1.0-smoothstep(0.0,0.015,abs(d)) );
+    int e = Cell(px);
 
-	fragColor = vec4(col,1.0);
+    float f = ( ((k==2)&&(e==1)) || (k==3) ) ? 1.0 : 0.0;
+    
+#endif
+    
+#if VARIANT==1
+	int k = Cell(px+ivec2(-1,-1)) + Cell(px+ivec2(0,-1)) + Cell(px+ivec2(1,-1))
+          + Cell(px+ivec2(-1, 0)) + Cell(px            ) + Cell(px+ivec2(1, 0))
+          + Cell(px+ivec2(-1, 1)) + Cell(px+ivec2(0, 1)) + Cell(px+ivec2(1, 1));
+
+    int e = Cell(px);
+
+    float f = ( ((k==4)&&(e==1)) || (k==3) ) ? 1.0 : 0.0;
+    
+#endif
+
+    
+#if VARIANT==2
+	int k = -Cell(px+ivec2(-1,-1)) -   Cell(px+ivec2(0,-1)) - Cell(px+ivec2(1,-1))
+            -Cell(px+ivec2(-1, 0)) + 8*Cell(px)           - Cell(px+ivec2(1, 0))
+            -Cell(px+ivec2(-1, 1)) -   Cell(px+ivec2(0, 1)) - Cell(px+ivec2(1, 1));
+
+    float f = (abs(k+3)*abs(2*k-11)<=9) ? 1.0 : 0.0;
+    
+    
+#endif
+    
+    if( iFrame==0 ) f = step(0.5, hash1(fragCoord.x*13.0+hash1(fragCoord.y*71.1)));
+	
+	fragColor = vec4( f, 0.0, 0.0, 0.0 );
 }
 
 // End code from shadertoy

@@ -91,8 +91,8 @@ struct Texture
   glm::uvec2 extent;
   vk::Format format;
 
-  std::shared_ptr<Image> image;
-  vk::UniqueImageView imageView;
+  std::vector<std::shared_ptr<Image>> image;
+  std::vector<vk::UniqueImageView> imageView;
 };
 
 struct TextureBinding
@@ -146,6 +146,7 @@ private:
   std::shared_ptr<Buffer> uniformBuffer;
 
   std::chrono::steady_clock::time_point startTime, lastTime;
+  uint32_t frameCount = 0;
 
 public:
   ShaderGraph(std::string jsonFile, Renderer& r)
@@ -251,25 +252,29 @@ public:
 
           auto texture = std::make_shared<Texture>();
 
-          texture->image = r.getMemoryAllocator()->AllocImage2D(extent, 1, format, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled);
+          for (int i = 0; i < r.getSwapchainImages().size(); i++)
+          {
+            auto image = r.getMemoryAllocator()->AllocImage2D(extent, 1, format, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::ImageLayout::eUndefined);
 
-          vk::ImageViewCreateInfo viewInfo;
-          viewInfo.image = texture->image->image;
-          viewInfo.viewType = vk::ImageViewType::e2D;
-          viewInfo.format = format;
-          viewInfo.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
-          viewInfo.subresourceRange.baseMipLevel = 0;
-          viewInfo.subresourceRange.levelCount = 1;
-          viewInfo.subresourceRange.baseArrayLayer = 0;
-          viewInfo.subresourceRange.layerCount = 1;
+            texture->image.push_back(image);
 
-          texture->imageView = r.getDevice().createImageViewUnique(viewInfo);
-          texture->extent = extent;
-          texture->format = format;
-          texture->name = outputName;
+            vk::ImageViewCreateInfo viewInfo;
+            viewInfo.image = image->image;
+            viewInfo.viewType = vk::ImageViewType::e2D;
+            viewInfo.format = format;
+            viewInfo.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+            viewInfo.subresourceRange.baseMipLevel = 0;
+            viewInfo.subresourceRange.levelCount = 1;
+            viewInfo.subresourceRange.baseArrayLayer = 0;
+            viewInfo.subresourceRange.layerCount = 1;
+
+            texture->imageView.push_back(r.getDevice().createImageViewUnique(viewInfo));
+            texture->extent = extent;
+            texture->format = format;
+            texture->name = outputName;
+          }
 
           this->textures[outputName] = texture;
-          spdlog::debug("======================= {}", stage->name);
           this->dependency[outputName] = stage->name;
 
           if (outputName == "framebuffer")
@@ -286,7 +291,7 @@ public:
           textureBinding.binding = stage->pipeline->GetBindingByName(textureBinding.name);
         }
 
-        stage->builtinParamBindPoint = stage->pipeline->GetBindingByName("BuiltinConstants");
+        stage->builtinParamBindPoint = stage->pipeline->GetBindingByName("iTime");
       }
     }
 
@@ -305,7 +310,7 @@ public:
     }
     else
     {
-      renderTarget.push_back(texture->imageView.get());
+      renderTarget.push_back(texture->imageView[ctx.imageIndex].get());
     }
 
     std::string stageName = this->dependency[target];
@@ -314,7 +319,8 @@ public:
     // Graph dependency
     for (auto& textureBinding : stage->texture)
     {
-      Render(r, ctx, textureBinding.name);
+      if (textureBinding.name.rfind("previous_") != 0)
+        Render(r, ctx, textureBinding.name);
     }
 
     // Render current node
@@ -328,9 +334,21 @@ public:
 
     for (auto& textureBinding : stage->texture)
     {
+      int imageIndex = ctx.imageIndex;
+      std::string textureName = textureBinding.name;
+
+      if (textureName.rfind("previous_") == 0)
+      {
+        textureName = textureName.substr(9);
+        int size = r.getSwapchainImages().size();
+        imageIndex = (imageIndex - 1 + size) % size;
+      }
+
+      ctx.cmdBuffer.ImageTransition(this->textures[textureName]->image[imageIndex], vk::PipelineStageFlagBits::eBottomOfPipe, vk::PipelineStageFlagBits::eFragmentShader, vk::ImageLayout::eUndefined, vk::ImageLayout::eShaderReadOnlyOptimal);
+
       pipeline->BindGraphicsImageView(
         *pipeline, descSet,
-        this->textures[textureBinding.name]->imageView.get(),
+        this->textures[textureName]->imageView[imageIndex].get(),
         vk::ImageLayout::eShaderReadOnlyOptimal, r.getTextureSystem()->GetSampler(),
         textureBinding.binding);
     }
@@ -346,7 +364,7 @@ public:
 
     if (target != "framebuffer")
     {
-      ctx.cmdBuffer.ImageTransition(texture->image, vk::PipelineStageFlagBits::eBottomOfPipe, vk::PipelineStageFlagBits::eFragmentShader, vk::ImageLayout::eShaderReadOnlyOptimal, vk::ImageLayout::eShaderReadOnlyOptimal);
+      ctx.cmdBuffer.ImageTransition(texture->image[ctx.imageIndex], vk::PipelineStageFlagBits::eBottomOfPipe, vk::PipelineStageFlagBits::eFragmentShader, vk::ImageLayout::eShaderReadOnlyOptimal, vk::ImageLayout::eShaderReadOnlyOptimal);
     }
   }
 
@@ -360,8 +378,10 @@ public:
     uniform.iTime = (now - startTime).count() * 1e-9;
     uniform.iMouse = glm::vec4(0.0);
     uniform.iTimeDelta = (now - lastTime).count() * 1e-9;
+    uniform.iFrame = frameCount;
     uniformBuffer->UnMap();
     lastTime = now;
+    frameCount++;
 
     Render(r, ctx, "framebuffer");
   }

@@ -515,6 +515,8 @@ void BG::Renderer::Run(std::function<void()> init, std::function<void(Context&)>
       cv.wait(lk, [&] { return ready; });
       ready = false;
 
+      if (!m_isRunning) break;
+
       ImGui_ImplVulkan_NewFrame();
       
       ImGui::NewFrame();
