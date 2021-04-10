@@ -418,7 +418,7 @@ void BG::Renderer::CreateSwapChain()
 
   m_swapchainFormat = surfaceFormat.format;
 
-  for (const auto& image : m_swapchainImages)
+  for (const auto& i : m_swapchainImages)
   {
     auto image = m_memoryAllocator->AllocImage2D(glm::uvec2(m_width, m_height), 1, vk::Format::eD32Sfloat, vk::ImageUsageFlagBits::eDepthStencilAttachment);
     m_depthImages.push_back(image);
@@ -597,12 +597,13 @@ void BG::Renderer::Run(std::function<void()> init, std::function<void(Context&)>
     m_tracker->NewFrame();
 
     float time = (std::chrono::steady_clock::now() - startTimeSteady).count() * 1e-9;
+    CommandBuffer bgCmdBuf(m_device.get(), m_cmdBuffers[imageIndex].get(), *m_tracker);
     Context ctx{
-      CommandBuffer(m_device.get(), m_cmdBuffers[imageIndex].get(), *m_tracker),
+      bgCmdBuf,
       m_descPools[imageIndex].get(),
       m_swapchainImageViews[imageIndex].get(), m_depthImageViews[imageIndex].get(),
       m_swapchainImages[imageIndex],
-      imageIndex, currentFrame, time };
+      imageIndex, int(currentFrame), time };
 
     render(ctx);
 
