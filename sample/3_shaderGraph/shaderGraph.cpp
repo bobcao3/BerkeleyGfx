@@ -393,7 +393,7 @@ public:
     auto& uniform = *(ShaderUniform*)(uniformBufferGPU + ShaderUniformSize * ctx.imageIndex);
     uniform.iResolution = glm::vec3(r.getWidth(), r.getHeight(), 1);
     uniform.iTime = (now - startTime).count() * 1e-9;
-    uniform.iMouse = glm::vec4(0.0);
+    uniform.iMouse = glm::vec4(r.getCursorPos(), 0.0, 0.0);
     uniform.iTimeDelta = (now - lastTime).count() * 1e-9;
     uniform.iFrame = frameCount;
     uniformBuffer->UnMap();

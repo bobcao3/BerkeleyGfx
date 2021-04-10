@@ -681,6 +681,13 @@ int Renderer::getHeight()
   return m_height;
 }
 
+glm::vec2 BG::Renderer::getCursorPos()
+{
+  double x, y;
+  glfwGetCursorPos(m_window, &x, &y);
+  return glm::vec2(x, y);
+}
+
 vk::Format BG::Renderer::getSwapChainFormat()
 {
   return m_swapchainFormat;

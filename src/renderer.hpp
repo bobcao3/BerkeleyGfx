@@ -110,6 +110,8 @@ namespace BG
     int getWidth();
     int getHeight();
 
+    glm::vec2 getCursorPos();
+
     inline std::shared_ptr<BG::MemoryAllocator> getMemoryAllocator() { return m_memoryAllocator; };
     inline std::shared_ptr<BG::TextureSystem> getTextureSystem() { return m_textureSystem; };
     inline BG::Tracker& getTracker() { return *m_tracker; }

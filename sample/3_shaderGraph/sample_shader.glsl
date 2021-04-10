@@ -89,6 +89,9 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
 #endif
     
     if( iFrame==0 ) f = step(0.5, hash1(fragCoord.x*13.0+hash1(fragCoord.y*71.1)));
+
+    // Set new states around the mouse cursor
+    if (distance(fragCoord, iMouse.xy) < 5.0) f = step(0.5, hash1(fragCoord.x*13.0+hash1(fragCoord.y*71.1)));
 	
 	fragColor = vec4(f);
 }
