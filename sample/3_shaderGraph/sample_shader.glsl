@@ -90,7 +90,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     
     if( iFrame==0 ) f = step(0.5, hash1(fragCoord.x*13.0+hash1(fragCoord.y*71.1)));
 	
-	fragColor = vec4( f, 0.0, 0.0, 0.0 );
+	fragColor = vec4(f);
 }
 
 // End code from shadertoy

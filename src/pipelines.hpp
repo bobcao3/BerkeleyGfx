@@ -67,6 +67,7 @@ namespace BG
     void AddAttribute(VertexBufferBinding binding, int location, vk::Format format, size_t offset);
 
     int GetBindingByName(std::string name);
+    uint32_t GetMemberOffset(std::string name);
 
     void AddDescriptorUniform(int binding, vk::ShaderStageFlags stage, int count = 1);
     void AddDescriptorTexture(int binding, vk::ShaderStageFlags stage, int count = 1);

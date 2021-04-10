@@ -130,6 +130,14 @@ std::vector<uint32_t> BG::Pipeline::BuildProgramFromSrc(std::string shaders, int
     this->AddPushConstant(pushConstant.absolute_offset, pushConstant.padded_size, stage);
   
     spdlog::debug("Push constant {}, offset={}, size={}", i, pushConstant.absolute_offset, pushConstant.padded_size);
+
+    for (int j = 0; j < pushConstant.member_count; j++)
+    {
+      auto& member = pushConstant.members[j];
+
+      spdlog::debug("Member variable name {}, offset {}", member.name, member.absolute_offset);
+      this->m_memberOffsets[member.name] = member.absolute_offset;
+    }
   }
 
   spvReflectDestroyShaderModule(&module);
@@ -179,6 +187,12 @@ int BG::Pipeline::GetBindingByName(std::string name)
 {
   if (m_name2bindings.find(name) == m_name2bindings.end()) return -1;
   return m_name2bindings[name];
+}
+
+uint32_t BG::Pipeline::GetMemberOffset(std::string name)
+{
+  if (m_memberOffsets.find(name) == m_memberOffsets.end()) return 0xFFFFFFFF;
+  return m_memberOffsets[name];
 }
 
 void BG::Pipeline::AddDescriptorUniform(int binding, vk::ShaderStageFlags stage, int count)

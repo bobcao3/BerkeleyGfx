@@ -16,10 +16,18 @@ namespace BG
     uint32_t m_currentFrame;
 
     std::vector<std::shared_ptr<Buffer>> m_buffers;
+    std::vector<uint32_t> m_buffersBytesAllocated;
 
     const uint32_t TRANSIENT_BLOCK_SIZE = 32 << 20;
 
   public:
+
+    struct TransientAllocation
+    {
+      std::shared_ptr<Buffer> buffer;
+      uint32_t offset;
+    };
+
     MemoryAllocator(vk::PhysicalDevice pDevice, vk::Device device, vk::Instance instance, uint32_t maxFramesInFlight);
     ~MemoryAllocator();
 
@@ -35,7 +43,7 @@ namespace BG
       glm::uvec2 extent, int mipLevels, vk::Format format, vk::ImageUsageFlags usage,
       vk::ImageLayout layout = vk::ImageLayout::eUndefined, VmaMemoryUsage memoryUsage = VMA_MEMORY_USAGE_GPU_ONLY);
 
-    uint32_t AllocTransientUniformBuffer(size_t size);
+    TransientAllocation AllocTransientUniformBuffer(size_t size);
   };
 
   class Buffer

@@ -17,6 +17,8 @@ BG::MemoryAllocator::MemoryAllocator(vk::PhysicalDevice pDevice, vk::Device devi
   {
     m_buffers.push_back(AllocCPU2GPU(TRANSIENT_BLOCK_SIZE, vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eTransferSrc));
   }
+
+  m_buffersBytesAllocated.resize(maxFramesInFlight);
 }
 
 BG::MemoryAllocator::~MemoryAllocator()
@@ -27,6 +29,7 @@ BG::MemoryAllocator::~MemoryAllocator()
 void BG::MemoryAllocator::NewFrame()
 {
   m_currentFrame = (m_currentFrame + 1) % m_buffers.size();
+  m_buffersBytesAllocated[m_currentFrame] = 0;
 }
 
 std::shared_ptr<BG::Buffer> BG::MemoryAllocator::Alloc(size_t size, vk::BufferUsageFlags usage, VmaMemoryUsage memoryUsage)
@@ -83,9 +86,11 @@ std::shared_ptr<BG::Image> BG::MemoryAllocator::AllocImage2D(glm::uvec2 extent, 
   return std::make_shared<BG::Image>(allocator, image, allocation);
 }
 
-uint32_t BG::MemoryAllocator::AllocTransientUniformBuffer(size_t size)
+BG::MemoryAllocator::TransientAllocation BG::MemoryAllocator::AllocTransientUniformBuffer(size_t size)
 {
-  return 0;
+  uint32_t currentAllocated = m_buffersBytesAllocated[m_currentFrame];
+  m_buffersBytesAllocated[m_currentFrame] += uint32_t(size);
+  return TransientAllocation{ m_buffers[m_currentFrame], currentAllocated };
 }
 
 BG::Image::Image(VmaAllocator& allocator, vk::Image image)

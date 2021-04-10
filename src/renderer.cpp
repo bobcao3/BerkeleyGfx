@@ -593,7 +593,7 @@ void BG::Renderer::Run(std::function<void()> init, std::function<void(Context&)>
 
     // Begin new frame on main thread
     m_device->resetDescriptorPool(m_descPools[imageIndex].get());
-
+    m_memoryAllocator->NewFrame();
     m_tracker->NewFrame();
 
     float time = (std::chrono::steady_clock::now() - startTimeSteady).count() * 1e-9;

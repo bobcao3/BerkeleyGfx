@@ -46,6 +46,8 @@ struct Parameter
       ImGui::TreePop();
     }
   }
+
+  virtual void PushParameter(CommandBuffer& cmdBuf, Pipeline& p) {}
 };
 
 struct FloatParameter : Parameter
@@ -62,6 +64,11 @@ struct FloatParameter : Parameter
       ImGui::SliderFloat("", &value, min, max);
       ImGui::TreePop();
     }
+  }
+
+  virtual void PushParameter(CommandBuffer& cmdBuf, Pipeline& p)
+  {
+    cmdBuf.PushConstants(p, vk::ShaderStageFlagBits::eFragment, p.GetMemberOffset(name), value);
   }
 };
 
@@ -81,6 +88,11 @@ struct Vec3Parameter : Parameter
       ImGui::SliderFloat("Z", &value.z, min.z, max.z);
       ImGui::TreePop();
     }
+  }
+
+  virtual void PushParameter(CommandBuffer& cmdBuf, Pipeline& p)
+  {
+    cmdBuf.PushConstants(p, vk::ShaderStageFlagBits::eFragment, p.GetMemberOffset(name), value);
   }
 };
 
@@ -358,7 +370,12 @@ public:
       ctx.cmdBuffer.BindPipeline(*pipeline);
       // Bind the descriptor sets (uniform buffer, texture, etc.)
       ctx.cmdBuffer.BindGraphicsDescSets(*pipeline, descSet);
-      // Draw terrain
+      // Push parameters as push constants
+      for (auto p : stage->parameters)
+      {
+        p->PushParameter(ctx.cmdBuffer, *pipeline);
+      }
+      // Draw full-screen
       ctx.cmdBuffer.Draw(3);
       });
 
