@@ -111,12 +111,25 @@ std::vector<uint32_t> BG::Pipeline::BuildProgramFromSrc(std::string shaders, int
       {
         auto& member = binding.block.members[j];
 
-        spdlog::debug("Member variable name {}", member.name);
+        spdlog::debug("Member variable name {}, offset {}", member.name, member.absolute_offset);
         this->m_name2bindings[member.name] = binding.binding;
+        this->m_memberOffsets[member.name] = member.absolute_offset;
       }
+    
+      this->m_uniformBlockSize[binding.name] = binding.block.padded_size;
+      spdlog::debug("Block size {}", binding.block.padded_size);
     }
 
     BindDescriptorReflection(*this, binding.binding, binding.descriptor_type, stage);
+  }
+
+  for (int i = 0; i < module.push_constant_block_count; i++)
+  {
+    auto& pushConstant = module.push_constant_blocks[i];
+
+    this->AddPushConstant(pushConstant.absolute_offset, pushConstant.padded_size, stage);
+  
+    spdlog::debug("Push constant {}, offset={}, size={}", i, pushConstant.absolute_offset, pushConstant.padded_size);
   }
 
   spvReflectDestroyShaderModule(&module);

@@ -3,7 +3,7 @@
 #define VMA_IMPLEMENTATION
 #include "vk_mem_alloc.h"
 
-BG::MemoryAllocator::MemoryAllocator(vk::PhysicalDevice pDevice, vk::Device device, vk::Instance instance)
+BG::MemoryAllocator::MemoryAllocator(vk::PhysicalDevice pDevice, vk::Device device, vk::Instance instance, uint32_t maxFramesInFlight)
 {
   VmaAllocatorCreateInfo allocatorInfo = {};
   allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_0;
@@ -12,11 +12,21 @@ BG::MemoryAllocator::MemoryAllocator(vk::PhysicalDevice pDevice, vk::Device devi
   allocatorInfo.instance = instance;
 
   vmaCreateAllocator(&allocatorInfo, &allocator);
+
+  for (uint32_t i = 0; i < maxFramesInFlight; i++)
+  {
+    m_buffers.push_back(AllocCPU2GPU(TRANSIENT_BLOCK_SIZE, vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eTransferSrc));
+  }
 }
 
 BG::MemoryAllocator::~MemoryAllocator()
 {
   vmaDestroyAllocator(allocator);
+}
+
+void BG::MemoryAllocator::NewFrame()
+{
+  m_currentFrame = (m_currentFrame + 1) % m_buffers.size();
 }
 
 std::shared_ptr<BG::Buffer> BG::MemoryAllocator::Alloc(size_t size, vk::BufferUsageFlags usage, VmaMemoryUsage memoryUsage)
@@ -71,6 +81,11 @@ std::shared_ptr<BG::Image> BG::MemoryAllocator::AllocImage2D(glm::uvec2 extent, 
   vmaCreateImage(allocator, &_imageInfo, &allocInfo, &image, &allocation, nullptr);
 
   return std::make_shared<BG::Image>(allocator, image, allocation);
+}
+
+uint32_t BG::MemoryAllocator::AllocTransientUniformBuffer(size_t size)
+{
+  return 0;
 }
 
 BG::Image::Image(VmaAllocator& allocator, vk::Image image)

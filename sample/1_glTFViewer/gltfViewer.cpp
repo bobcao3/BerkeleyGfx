@@ -282,8 +282,6 @@ int main(int, char**)
       pipeline->AddAttribute(vertexBinding, 0, vk::Format::eR32G32B32Sfloat, offsetof(Vertex, pos));
       pipeline->AddAttribute(vertexBinding, 1, vk::Format::eR32G32B32Sfloat, offsetof(Vertex, color));
       pipeline->AddAttribute(vertexBinding, 2, vk::Format::eR32G32Sfloat, offsetof(Vertex, uv));
-      // Specify push constants
-      pipeline->AddPushConstant(0, sizeof(glm::mat4), vk::ShaderStageFlagBits::eVertex);
       // Add shaders
       pipeline->AddFragmentShaders(fragmentShader);
       pipeline->AddVertexShaders(vertexShader);

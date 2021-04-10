@@ -13,9 +13,17 @@ namespace BG
   private:
     VmaAllocator allocator;
 
+    uint32_t m_currentFrame;
+
+    std::vector<std::shared_ptr<Buffer>> m_buffers;
+
+    const uint32_t TRANSIENT_BLOCK_SIZE = 32 << 20;
+
   public:
-    MemoryAllocator(vk::PhysicalDevice pDevice, vk::Device device, vk::Instance instance);
+    MemoryAllocator(vk::PhysicalDevice pDevice, vk::Device device, vk::Instance instance, uint32_t maxFramesInFlight);
     ~MemoryAllocator();
+
+    void NewFrame();
 
     // Static allocation
     std::shared_ptr<Buffer> Alloc(size_t size, vk::BufferUsageFlags usage, VmaMemoryUsage memoryUsage);
@@ -26,6 +34,8 @@ namespace BG
     std::shared_ptr<Image> AllocImage2D(
       glm::uvec2 extent, int mipLevels, vk::Format format, vk::ImageUsageFlags usage,
       vk::ImageLayout layout = vk::ImageLayout::eUndefined, VmaMemoryUsage memoryUsage = VMA_MEMORY_USAGE_GPU_ONLY);
+
+    uint32_t AllocTransientUniformBuffer(size_t size);
   };
 
   class Buffer

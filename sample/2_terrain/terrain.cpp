@@ -139,8 +139,6 @@ int main(int, char**)
       vertexBinding = pipeline->AddVertexBuffer<Vertex>();
       // Specify two vertex input attributes from the binding
       pipeline->AddAttribute(vertexBinding, 0, vk::Format::eR32G32B32Sfloat, offsetof(Vertex, pos));
-      // Specify push constants
-      pipeline->AddPushConstant(0, sizeof(glm::mat4), vk::ShaderStageFlagBits::eVertex);
       // Add shaders
       pipeline->AddFragmentShaders(fragmentShader);
       pipeline->AddVertexShaders(vertexShader);

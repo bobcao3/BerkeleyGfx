@@ -46,6 +46,8 @@ namespace BG
     std::vector<uint32_t> BuildProgramFromSrc(std::string shaders, int shaderType);
     
     std::unordered_map<std::string, uint32_t> m_name2bindings;
+    std::unordered_map<std::string, uint32_t> m_memberOffsets;
+    std::unordered_map<std::string, uint32_t> m_uniformBlockSize;
 
   public:
     void AddFragmentShaders(std::string shaders);

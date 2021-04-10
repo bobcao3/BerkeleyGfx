@@ -6,6 +6,9 @@ endif()
 
 # The library itself
 
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 project(
     "BoilerPlate"
     VERSION 0.0.0

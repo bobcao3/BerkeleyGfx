@@ -329,7 +329,7 @@ void BG::Renderer::CreateDevice()
     throw std::runtime_error("No presentation support on the graphcis queue");
   }
 
-  m_memoryAllocator = std::make_shared<BG::MemoryAllocator>(m_physicalDevice, m_device.get(), m_instance.get());
+  m_memoryAllocator = std::make_shared<BG::MemoryAllocator>(m_physicalDevice, m_device.get(), m_instance.get(), MAX_FRAMES_IN_FLIGHT);
 }
 
 void BG::Renderer::CreateSurface()
