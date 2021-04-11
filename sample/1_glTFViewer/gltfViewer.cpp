@@ -141,7 +141,7 @@ void load_gltf_node(tinygltf::Model& model, int nodeId, glm::mat4 transform)
         float* uvElementBase = (float*)((uint8_t*)(uvBuffer.data.data()) + uvBufferView.byteOffset + uvAccessor.byteOffset + uvBufferStride * index);
         Vertex v;
         v.pos = glm::vec3(elementBase[0], elementBase[1], elementBase[2]);
-        v.color = glm::vec3(0.7);
+        v.color = glm::vec3(0.7f);
         v.uv = glm::vec2(uvElementBase[0], uvElementBase[1]);
         vertices.push_back(v);
       }
@@ -345,9 +345,9 @@ int main(int, char**)
     [&]() {
       // Render a camera control GUI through ImGui
       ImGui::Begin("Example Window");
-      ImGui::DragFloat3("Camera Look At", &cameraLookAt[0], 0.01);
-      ImGui::DragFloat("Camera Orbit Radius", &cameraOrbitRadius, 0.01);
-      ImGui::DragFloat("Camera Orbit Height", &cameraOrbitHeight, 0.01);
+      ImGui::DragFloat3("Camera Look At", &cameraLookAt[0], 0.01f);
+      ImGui::DragFloat("Camera Orbit Radius", &cameraOrbitRadius, 0.01f);
+      ImGui::DragFloat("Camera Orbit Height", &cameraOrbitHeight, 0.01f);
       ImGui::End();
     },
     // Cleanup

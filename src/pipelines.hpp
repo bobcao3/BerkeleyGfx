@@ -58,7 +58,7 @@ namespace BG
       vk::VertexInputBindingDescription desc;
       desc.setStride(sizeof(T));
       desc.setInputRate(perVertex ? vk::VertexInputRate::eVertex : vk::VertexInputRate::eInstance);
-      int binding = m_bindingDescriptions.size();
+      int binding = int(m_bindingDescriptions.size());
       desc.setBinding(binding);
       m_bindingDescriptions.push_back(desc);
       return VertexBufferBinding{ binding };

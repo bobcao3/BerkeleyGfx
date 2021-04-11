@@ -29,7 +29,7 @@ struct ShaderUniform
   glm::vec3 iResolution;
   float iTime;
   float iTimeDelta;
-  float iFrame;
+  int iFrame;
 };
 
 size_t ShaderUniformSize = sizeof(ShaderUniform) % 0x40 > 0 ? (sizeof(ShaderUniform) / 0x40 + 1) * 0x40 : sizeof(ShaderUniform);
@@ -342,7 +342,7 @@ public:
     auto descSet = pipeline->AllocDescSet(ctx.descPool);
     
     if (stage->builtinParamBindPoint >= 0)
-      pipeline->BindGraphicsUniformBuffer(*pipeline, descSet, uniformBuffer, ShaderUniformSize * ctx.imageIndex, sizeof(ShaderUniform), stage->builtinParamBindPoint);
+      pipeline->BindGraphicsUniformBuffer(*pipeline, descSet, uniformBuffer, ShaderUniformSize * ctx.imageIndex, uint32_t(sizeof(ShaderUniform)), stage->builtinParamBindPoint);
 
     for (auto& textureBinding : stage->texture)
     {
@@ -391,11 +391,11 @@ public:
     auto now = std::chrono::steady_clock::now();
     uint8_t* uniformBufferGPU = uniformBuffer->Map<uint8_t>();
     auto& uniform = *(ShaderUniform*)(uniformBufferGPU + ShaderUniformSize * ctx.imageIndex);
-    uniform.iResolution = glm::vec3(r.getWidth(), r.getHeight(), 1);
-    uniform.iTime = (now - startTime).count() * 1e-9;
-    uniform.iMouse = glm::vec4(r.getCursorPos(), 0.0, 0.0);
-    uniform.iTimeDelta = (now - lastTime).count() * 1e-9;
-    uniform.iFrame = frameCount;
+    uniform.iResolution = glm::vec3(r.getWidth(), r.getHeight(), 1.0f);
+    uniform.iTime = float((now - startTime).count() * 1e-9);
+    uniform.iMouse = glm::vec4(r.getCursorPos(), 0.0f, 0.0f);
+    uniform.iTimeDelta = float((now - lastTime).count() * 1e-9);
+    uniform.iFrame = int(frameCount);
     uniformBuffer->UnMap();
     lastTime = now;
     frameCount++;
@@ -412,7 +412,7 @@ public:
       auto stage = pair.second; // first: key, second: shader stage
       auto name = pair.first;
 
-      if (ImGui::TreeNodeEx(stage.get(), 0, "Stage %s", name.data()))
+      if (ImGui::TreeNodeEx(stage.get(), ImGuiTreeNodeFlags_CollapsingHeader, "Stage %s", name.data()))
       {
         ImGui::Text("Shader File: %s", stage->shaderFile.data());
 
@@ -421,7 +421,7 @@ public:
           param->RenderGUI();
         }
 
-        ImGui::TreePop();
+        //ImGui::TreePop();
       }
     }
 

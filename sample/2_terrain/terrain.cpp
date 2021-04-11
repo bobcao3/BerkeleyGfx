@@ -61,14 +61,14 @@ void generateGrid(int width)
   }
 
   // Triangles
-  for (uint32_t i = 0; i < width; i++)
+  for (int i = 0; i < width; i++)
   {
-    for (uint32_t j = 0; j < width; j++)
+    for (int j = 0; j < width; j++)
     {
-      uint32_t index00 = i * (width + 1) + j;
-      uint32_t index01 = i * (width + 1) + (j + 1);
-      uint32_t index10 = (i + 1) * (width + 1) + j;
-      uint32_t index11 = (i + 1) * (width + 1) + (j + 1);
+      int index00 = i * (width + 1) + j;
+      int index01 = i * (width + 1) + (j + 1);
+      int index10 = (i + 1) * (width + 1) + j;
+      int index11 = (i + 1) * (width + 1) + (j + 1);
 
       // first triangle (CCW)
       indicies.push_back(index01); indicies.push_back(index10); indicies.push_back(index00);
@@ -185,7 +185,7 @@ int main(int, char**)
         ctx.cmdBuffer.BindGraphicsDescSets(*pipeline, descSet);
         // Draw terrain
         ctx.cmdBuffer.PushConstants(*pipeline, vk::ShaderStageFlagBits::eVertex, 0, terrainTransform);
-        ctx.cmdBuffer.DrawIndexed(indicies.size(), 0, 0);
+        ctx.cmdBuffer.DrawIndexed(uint32_t(indicies.size()), 0, 0);
 
         });
       // End the recording of command buffer
@@ -197,9 +197,9 @@ int main(int, char**)
     [&]() {
       // Render a camera control GUI through ImGui
       ImGui::Begin("Example Window");
-      ImGui::DragFloat3("Camera Look At", &cameraLookAt[0], 0.01);
-      ImGui::DragFloat("Camera Orbit Radius", &cameraOrbitRadius, 0.01);
-      ImGui::DragFloat("Camera Orbit Height", &cameraOrbitHeight, 0.01);
+      ImGui::DragFloat3("Camera Look At", &cameraLookAt[0], 0.01f);
+      ImGui::DragFloat("Camera Orbit Radius", &cameraOrbitRadius, 0.01f);
+      ImGui::DragFloat("Camera Orbit Height", &cameraOrbitHeight, 0.01f);
       ImGui::End();
     },
     // Cleanup

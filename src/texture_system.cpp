@@ -10,7 +10,7 @@ TextureSystem::Handle TextureSystem::AddTexture(uint8_t* imageBuffer, int width,
 {
   auto image = m_allocator.AllocImage2D(glm::uvec2(width, height), 1, format, vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled, vk::ImageLayout::eUndefined);
 
-  int index = m_images.size();
+  int index = int(m_images.size());
 
   m_images.push_back(image);
 

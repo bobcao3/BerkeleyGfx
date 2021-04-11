@@ -124,8 +124,8 @@ namespace BG
 
     vk::Format getSwapChainFormat();
 
-    vk::UniqueFramebuffer CreateFramebuffer(vk::RenderPass& renderpass, std::vector<vk::ImageView>& imageView, int width, int height);
-    vk::UniqueFramebuffer CreateFramebuffer(vk::RenderPass& renderpass, std::vector<vk::ImageView>& imageView, std::vector<vk::ImageView>& depthView, int width, int height);
+    vk::UniqueFramebuffer CreateFramebuffer(vk::RenderPass renderpass, std::vector<vk::ImageView>& imageView, int width, int height);
+    vk::UniqueFramebuffer CreateFramebuffer(vk::RenderPass renderpass, std::vector<vk::ImageView>& imageView, std::vector<vk::ImageView>& depthView, int width, int height);
 
     vk::UniqueCommandBuffer AllocCmdBuffer();
 

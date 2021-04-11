@@ -95,7 +95,7 @@ std::vector<uint32_t> BG::Pipeline::BuildProgramFromSrc(std::string shaders, int
     break;
   }
 
-  for (int i = 0; i < module.descriptor_binding_count; i++)
+  for (uint32_t i = 0; i < module.descriptor_binding_count; i++)
   {
     SpvReflectDescriptorBinding& binding = module.descriptor_bindings[i];
 
@@ -107,7 +107,7 @@ std::vector<uint32_t> BG::Pipeline::BuildProgramFromSrc(std::string shaders, int
 
     if (binding.block.members != nullptr)
     {
-      for (int j = 0; j < binding.block.member_count; j++)
+      for (uint32_t j = 0; j < binding.block.member_count; j++)
       {
         auto& member = binding.block.members[j];
 
@@ -123,7 +123,7 @@ std::vector<uint32_t> BG::Pipeline::BuildProgramFromSrc(std::string shaders, int
     BindDescriptorReflection(*this, binding.binding, binding.descriptor_type, stage);
   }
 
-  for (int i = 0; i < module.push_constant_block_count; i++)
+  for (uint32_t i = 0; i < module.push_constant_block_count; i++)
   {
     auto& pushConstant = module.push_constant_blocks[i];
 
@@ -131,7 +131,7 @@ std::vector<uint32_t> BG::Pipeline::BuildProgramFromSrc(std::string shaders, int
   
     spdlog::debug("Push constant {}, offset={}, size={}", i, pushConstant.absolute_offset, pushConstant.padded_size);
 
-    for (int j = 0; j < pushConstant.member_count; j++)
+    for (uint32_t j = 0; j < pushConstant.member_count; j++)
     {
       auto& member = pushConstant.members[j];
 

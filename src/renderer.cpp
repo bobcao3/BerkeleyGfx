@@ -49,6 +49,62 @@ void BG::Renderer::InitVulkan()
   CreateSemaphore();
 }
 
+void SetStyleDark()
+{
+  ImGui::GetStyle().FrameRounding = 4.0f;
+  ImGui::GetStyle().GrabRounding = 4.0f;
+
+  ImVec4* colors = ImGui::GetStyle().Colors;
+  colors[ImGuiCol_Text] = ImVec4(0.95f, 0.96f, 0.98f, 1.00f);
+  colors[ImGuiCol_TextDisabled] = ImVec4(0.36f, 0.42f, 0.47f, 1.00f);
+  colors[ImGuiCol_WindowBg] = ImVec4(0.11f, 0.15f, 0.17f, 1.00f);
+  colors[ImGuiCol_ChildBg] = ImVec4(0.15f, 0.18f, 0.22f, 1.00f);
+  colors[ImGuiCol_PopupBg] = ImVec4(0.08f, 0.08f, 0.08f, 0.94f);
+  colors[ImGuiCol_Border] = ImVec4(0.08f, 0.10f, 0.12f, 1.00f);
+  colors[ImGuiCol_BorderShadow] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+  colors[ImGuiCol_FrameBg] = ImVec4(0.20f, 0.25f, 0.29f, 1.00f);
+  colors[ImGuiCol_FrameBgHovered] = ImVec4(0.12f, 0.20f, 0.28f, 1.00f);
+  colors[ImGuiCol_FrameBgActive] = ImVec4(0.09f, 0.12f, 0.14f, 1.00f);
+  colors[ImGuiCol_TitleBg] = ImVec4(0.09f, 0.12f, 0.14f, 0.65f);
+  colors[ImGuiCol_TitleBgActive] = ImVec4(0.08f, 0.10f, 0.12f, 1.00f);
+  colors[ImGuiCol_TitleBgCollapsed] = ImVec4(0.00f, 0.00f, 0.00f, 0.51f);
+  colors[ImGuiCol_MenuBarBg] = ImVec4(0.15f, 0.18f, 0.22f, 1.00f);
+  colors[ImGuiCol_ScrollbarBg] = ImVec4(0.02f, 0.02f, 0.02f, 0.39f);
+  colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.20f, 0.25f, 0.29f, 1.00f);
+  colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.18f, 0.22f, 0.25f, 1.00f);
+  colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(0.09f, 0.21f, 0.31f, 1.00f);
+  colors[ImGuiCol_CheckMark] = ImVec4(0.28f, 0.56f, 1.00f, 1.00f);
+  colors[ImGuiCol_SliderGrab] = ImVec4(0.28f, 0.56f, 1.00f, 1.00f);
+  colors[ImGuiCol_SliderGrabActive] = ImVec4(0.37f, 0.61f, 1.00f, 1.00f);
+  colors[ImGuiCol_Button] = ImVec4(0.20f, 0.25f, 0.29f, 1.00f);
+  colors[ImGuiCol_ButtonHovered] = ImVec4(0.28f, 0.56f, 1.00f, 1.00f);
+  colors[ImGuiCol_ButtonActive] = ImVec4(0.06f, 0.53f, 0.98f, 1.00f);
+  colors[ImGuiCol_Header] = ImVec4(0.20f, 0.25f, 0.29f, 0.55f);
+  colors[ImGuiCol_HeaderHovered] = ImVec4(0.26f, 0.59f, 0.98f, 0.80f);
+  colors[ImGuiCol_HeaderActive] = ImVec4(0.26f, 0.59f, 0.98f, 1.00f);
+  colors[ImGuiCol_Separator] = ImVec4(0.20f, 0.25f, 0.29f, 1.00f);
+  colors[ImGuiCol_SeparatorHovered] = ImVec4(0.10f, 0.40f, 0.75f, 0.78f);
+  colors[ImGuiCol_SeparatorActive] = ImVec4(0.10f, 0.40f, 0.75f, 1.00f);
+  colors[ImGuiCol_ResizeGrip] = ImVec4(0.26f, 0.59f, 0.98f, 0.25f);
+  colors[ImGuiCol_ResizeGripHovered] = ImVec4(0.26f, 0.59f, 0.98f, 0.67f);
+  colors[ImGuiCol_ResizeGripActive] = ImVec4(0.26f, 0.59f, 0.98f, 0.95f);
+  colors[ImGuiCol_Tab] = ImVec4(0.11f, 0.15f, 0.17f, 1.00f);
+  colors[ImGuiCol_TabHovered] = ImVec4(0.26f, 0.59f, 0.98f, 0.80f);
+  colors[ImGuiCol_TabActive] = ImVec4(0.20f, 0.25f, 0.29f, 1.00f);
+  colors[ImGuiCol_TabUnfocused] = ImVec4(0.11f, 0.15f, 0.17f, 1.00f);
+  colors[ImGuiCol_TabUnfocusedActive] = ImVec4(0.11f, 0.15f, 0.17f, 1.00f);
+  colors[ImGuiCol_PlotLines] = ImVec4(0.61f, 0.61f, 0.61f, 1.00f);
+  colors[ImGuiCol_PlotLinesHovered] = ImVec4(1.00f, 0.43f, 0.35f, 1.00f);
+  colors[ImGuiCol_PlotHistogram] = ImVec4(0.90f, 0.70f, 0.00f, 1.00f);
+  colors[ImGuiCol_PlotHistogramHovered] = ImVec4(1.00f, 0.60f, 0.00f, 1.00f);
+  colors[ImGuiCol_TextSelectedBg] = ImVec4(0.26f, 0.59f, 0.98f, 0.35f);
+  colors[ImGuiCol_DragDropTarget] = ImVec4(1.00f, 1.00f, 0.00f, 0.90f);
+  colors[ImGuiCol_NavHighlight] = ImVec4(0.26f, 0.59f, 0.98f, 1.00f);
+  colors[ImGuiCol_NavWindowingHighlight] = ImVec4(1.00f, 1.00f, 1.00f, 0.70f);
+  colors[ImGuiCol_NavWindowingDimBg] = ImVec4(0.80f, 0.80f, 0.80f, 0.20f);
+  colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.80f, 0.80f, 0.80f, 0.35f);
+}
+
 void BG::Renderer::InitImGui()
 {
   ImGui::CreateContext();
@@ -59,6 +115,8 @@ void BG::Renderer::InitImGui()
   // Setup Dear ImGui style
   ImGui::StyleColorsDark();
   //ImGui::StyleColorsClassic();
+
+  SetStyleDark();
 
   // Create Descriptor Pool
   {
@@ -136,8 +194,8 @@ void BG::Renderer::InitImGui()
   init_info.PipelineCache = nullptr;
   init_info.DescriptorPool = m_ImGuiDescPool;
   init_info.Allocator = nullptr;
-  init_info.MinImageCount = m_swapchainImages.size();
-  init_info.ImageCount = m_swapchainImages.size();
+  init_info.MinImageCount = uint32_t(m_swapchainImages.size());
+  init_info.ImageCount = uint32_t(m_swapchainImages.size());
   init_info.CheckVkResultFn = nullptr;
   ImGui_ImplVulkan_Init(&init_info, m_ImGuiRenderPass.get());
 
@@ -627,7 +685,7 @@ void BG::Renderer::Run(std::function<void()> init, std::function<void(Context&)>
 
     m_device->resetFences(1, &m_imagesInFlight[imageIndex]->get());
 
-    m_graphcisQueue.submit(1, &submitInfo, m_inFlightFences[ctx.currentFrame].get());
+    auto result = m_graphcisQueue.submit(1, &submitInfo, m_inFlightFences[ctx.currentFrame].get());
 
     uint32_t imageIndexU32 = imageIndex;
 
@@ -636,7 +694,7 @@ void BG::Renderer::Run(std::function<void()> init, std::function<void(Context&)>
     presentInfo.setSwapchains(m_swapchain.get());
     presentInfo.pImageIndices = &imageIndexU32;
 
-    m_graphcisQueue.presentKHR(presentInfo);
+    result = m_graphcisQueue.presentKHR(presentInfo);
 
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 
@@ -693,7 +751,7 @@ vk::Format BG::Renderer::getSwapChainFormat()
   return m_swapchainFormat;
 }
 
-vk::UniqueFramebuffer BG::Renderer::CreateFramebuffer(vk::RenderPass& renderpass, std::vector<vk::ImageView>& imageView, int width, int height)
+vk::UniqueFramebuffer BG::Renderer::CreateFramebuffer(vk::RenderPass renderpass, std::vector<vk::ImageView>& imageView, int width, int height)
 {
   vk::FramebufferCreateInfo framebufferInfo;
   framebufferInfo.setRenderPass(renderpass);
@@ -705,7 +763,7 @@ vk::UniqueFramebuffer BG::Renderer::CreateFramebuffer(vk::RenderPass& renderpass
   return m_device->createFramebufferUnique(framebufferInfo);
 }
 
-vk::UniqueFramebuffer BG::Renderer::CreateFramebuffer(vk::RenderPass& renderpass, std::vector<vk::ImageView>& imageView, std::vector<vk::ImageView>& depthView, int width, int height)
+vk::UniqueFramebuffer BG::Renderer::CreateFramebuffer(vk::RenderPass renderpass, std::vector<vk::ImageView>& imageView, std::vector<vk::ImageView>& depthView, int width, int height)
 {
   vk::FramebufferCreateInfo framebufferInfo;
   framebufferInfo.setRenderPass(renderpass);
@@ -734,11 +792,11 @@ void BG::Renderer::SubmitCmdBufferNow(vk::CommandBuffer buf, bool wait)
 
   submitInfo.setCommandBuffers(buf);
 
-  m_graphcisQueue.submit(1, &submitInfo, fence);
+  auto result = m_graphcisQueue.submit(1, &submitInfo, fence);
 
   if (wait)
   {
-    m_device->waitForFences(1, &fence, true, UINT64_MAX);
+    result = m_device->waitForFences(1, &fence, true, UINT64_MAX);
     m_device->destroyFence(fence);
   }
 }

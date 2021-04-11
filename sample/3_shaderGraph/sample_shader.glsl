@@ -10,7 +10,7 @@ layout(binding = 0) uniform BuiltinConstants
   vec3 iResolution;
   float iTime;
   float iTimeDelta;
-  float iFrame;
+  int iFrame;
 };
 
 layout(binding = 3) uniform sampler2D previous_output0;
