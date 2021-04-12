@@ -56,7 +56,9 @@ namespace BG::ShaderGraph
     vk::Format format;
 
     std::vector<std::shared_ptr<BG::Image>> image;
-    std::vector<vk::UniqueImageView> imageView;
+    std::vector<vk::ImageView> imageView;
+
+    bool isInternal = true;
   };
 
   struct TextureBinding
@@ -86,6 +88,8 @@ namespace BG::ShaderGraph
     std::unordered_map<std::string, std::shared_ptr<Stage>> stages;
     std::unordered_map<std::string, std::string> dependency; // key: output name, value: stage name
 
+    BG::Renderer& r;
+
     std::string outputStage;
 
     std::shared_ptr<BG::Buffer> uniformBuffer;
@@ -93,8 +97,11 @@ namespace BG::ShaderGraph
     std::chrono::steady_clock::time_point startTime, lastTime;
     uint32_t frameCount = 0;
 
+    void CreateTexture(glm::uvec2 extent, vk::Format format, Renderer& r, std::string name);
+
   public:
     Graph(std::string jsonFile, BG::Renderer& r);
+    ~Graph();
 
     void Render(BG::Renderer& r, BG::Renderer::Context& ctx, std::string target);
 

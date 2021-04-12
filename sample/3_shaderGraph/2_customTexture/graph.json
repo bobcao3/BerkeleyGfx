@@ -1,0 +1,39 @@
+{
+  "images": {
+    "output0": {
+      "resolution": [ 256, 256 ],
+      "format": "r8"
+    },
+    "stoneTexture": {
+      "fileName": "stone.png"
+    }
+  },
+  "stages": {
+    "final": {
+      "shader": "final_tonemap.glsl",
+      "output": [ "framebuffer" ],
+      "textures": [ "output0", "stoneTexture" ],
+      "parameters": [
+        {
+          "name": "gamma",
+          "type": "float",
+          "min": 1.0,
+          "max": 3.0,
+          "default": 2.2
+        },
+        {
+          "name": "colorFilter",
+          "type": "vec3",
+          "min": [ 0.0, 0.0, 0.0 ],
+          "max": [ 1.0, 1.0, 1.0 ],
+          "default": [ 0.5, 0.7, 1.0 ]
+        }
+      ]
+    },
+    "stage0": {
+      "shader": "game_of_life.glsl",
+      "output": [ "output0" ],
+      "textures": [ "previous_output0" ]
+    }
+  }
+}

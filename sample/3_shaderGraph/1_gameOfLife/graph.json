@@ -22,7 +22,7 @@
       ]
     },
     "stage0": {
-      "shader": "sample_shader.glsl",
+      "shader": "game_of_life.glsl",
       "output": [ "output0" ],
       "textures": [ "previous_output0" ]
     }
