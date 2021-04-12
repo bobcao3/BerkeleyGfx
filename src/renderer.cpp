@@ -426,13 +426,13 @@ void BG::Renderer::CreateSwapChain()
 
   if (std::find(formatCapability.begin(), formatCapability.end(), vk::Format::eR8G8B8A8Srgb) != formatCapability.end())
   {
-    surfaceFormat = vk::Format::eR8G8B8A8Srgb;
-    spdlog::info("Using format: RGBA8 SRGB");
+    surfaceFormat = vk::Format::eR8G8B8A8Unorm;
+    spdlog::info("Using format: RGBA8 Unorm");
   }
   else if (std::find(formatCapability.begin(), formatCapability.end(), vk::Format::eB8G8R8A8Srgb) != formatCapability.end())
   {
-    surfaceFormat = vk::Format::eB8G8R8A8Srgb;
-    spdlog::info("Using format: BGRA8 SRGB");
+    surfaceFormat = vk::Format::eB8G8R8A8Unorm;
+    spdlog::info("Using format: BGRA8 Unorm");
   }
   else
   {
@@ -449,9 +449,17 @@ void BG::Renderer::CreateSwapChain()
 
   uint32_t imageCount = std::min(surfaceCapability.minImageCount + 1, surfaceCapability.maxImageCount);
 
-  vk::SwapchainCreateInfoKHR createInfo{ {}, m_surface.get(), imageCount, surfaceFormat.format, surfaceFormat.colorSpace, actualExtent, 1, vk::ImageUsageFlagBits::eColorAttachment };
+  vk::SwapchainCreateInfoKHR createInfo;
 
+  createInfo.setSurface(m_surface.get());
+  createInfo.setMinImageCount(imageCount);
+  createInfo.setImageFormat(surfaceFormat.format);
+  createInfo.setImageColorSpace(surfaceFormat.colorSpace);
+  createInfo.setImageExtent(actualExtent);
+  createInfo.setImageArrayLayers(1);
+  createInfo.setImageUsage(vk::ImageUsageFlagBits::eColorAttachment);
   createInfo.setImageSharingMode(vk::SharingMode::eExclusive);
+  createInfo.setQueueFamilyIndexCount(0);
   createInfo.setPreTransform(surfaceCapability.currentTransform);
   createInfo.setCompositeAlpha(vk::CompositeAlphaFlagBitsKHR::eOpaque);
   createInfo.setPresentMode(presentMode);
@@ -538,6 +546,69 @@ void BG::Renderer::CreateDescriptorPools()
   }
 }
 
+void BG::Renderer::DestroySwapChain()
+{
+  m_swapchainImages.clear();
+  m_swapchainImageViews.clear();
+  m_depthImages.clear();
+  m_depthImageViews.clear();
+  m_device->destroySwapchainKHR(m_swapchain.get());
+  m_swapchain.release();
+}
+
+void BG::Renderer::DestroyCmdPools()
+{
+  m_device->destroyCommandPool(m_graphicsCmdPool.get());
+  m_graphicsCmdPool.release();
+  m_device->destroyCommandPool(m_guiCmdPool.get());
+  m_guiCmdPool.release();
+}
+
+void BG::Renderer::DestroyCmdBuffers()
+{
+  m_cmdBuffers.clear();
+  m_ImGuiCmdBuffers.clear();
+}
+
+void BG::Renderer::DestroySemaphore()
+{
+  m_imageAvailableSemaphores.clear();
+  m_renderFinishedSemaphores.clear();
+  m_inFlightFences.clear();
+}
+
+void BG::Renderer::DestroyDescriptorPools()
+{
+  m_descPools.clear();
+  vkDestroyDescriptorPool(m_device.get(), m_ImGuiDescPool, nullptr);
+}
+
+void BG::Renderer::DestroySurface()
+{
+  vkDestroySurfaceKHR(m_instance.get(), m_surface.get(), nullptr);
+  m_surface.release();
+}
+
+void BG::Renderer::DestroyDevice()
+{
+  m_device->destroy();
+  m_device.release();
+}
+
+void BG::Renderer::DestroyImGui()
+{
+  ImGui_ImplVulkan_Shutdown();
+  ImGui_ImplGlfw_Shutdown();
+  ImGui::DestroyContext();
+}
+
+void BG::Renderer::DestroyImGuiSwapChain()
+{
+  m_ImGuiFramebuffer.clear();
+  m_device->destroyRenderPass(m_ImGuiRenderPass.get());
+  m_ImGuiRenderPass.release();
+}
+
 BG::Renderer::Renderer(std::string name, bool enableValidationLayers)
   : m_name(name), m_enableValidationLayers(enableValidationLayers), m_tracker(std::make_shared<BG::Tracker>(MAX_FRAMES_IN_FLIGHT))
 {
@@ -550,6 +621,23 @@ BG::Renderer::Renderer(std::string name, bool enableValidationLayers)
 
 BG::Renderer::~Renderer()
 {
+  DestroyCmdBuffers();
+  DestroyCmdPools();
+  DestroySemaphore();
+  DestroyImGuiSwapChain();
+  DestroySwapChain();
+  DestroyDescriptorPools();
+
+  DestroyImGui();
+  
+  m_textureSystem = nullptr;
+  m_tracker = nullptr;
+  m_memoryAllocator = nullptr;
+
+  DestroySurface();
+  DestroyDevice();
+
+  glfwDestroyWindow(m_window);
   glfwTerminate();
 }
 
@@ -718,8 +806,6 @@ void BG::Renderer::Run(std::function<void()> init, std::function<void(Context&)>
   guiThread.join();
 
   m_device->waitIdle();
-
-  m_device->destroyDescriptorPool(m_ImGuiDescPool);
 
   cleanup();
 }

@@ -15,5 +15,5 @@ void main()
 {
   vec3 lastStageColor = texelFetch(output0, ivec2(gl_FragCoord.st), 0).rgb;
 
-  outColor = vec4(pow(lastStageColor, vec3(gamma)) * colorFilter, 1.0);
+  outColor = vec4(pow(lastStageColor, vec3(1.0 / gamma)) * colorFilter, 1.0);
 }

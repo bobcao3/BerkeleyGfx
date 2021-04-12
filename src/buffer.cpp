@@ -23,6 +23,7 @@ BG::MemoryAllocator::MemoryAllocator(vk::PhysicalDevice pDevice, vk::Device devi
 
 BG::MemoryAllocator::~MemoryAllocator()
 {
+  m_buffers.clear();
   vmaDestroyAllocator(allocator);
 }
 
@@ -45,6 +46,8 @@ std::shared_ptr<BG::Buffer> BG::MemoryAllocator::Alloc(size_t size, vk::BufferUs
   VmaAllocation allocation;
   vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, &allocation, nullptr);
 
+  spdlog::debug("Allocating memory size={}", size);
+
   return std::make_shared<BG::Buffer>(allocator, buffer, allocation);
 }
 
@@ -55,6 +58,7 @@ BG::Buffer::Buffer(VmaAllocator& allocator, vk::Buffer buffer, VmaAllocation all
 
 BG::Buffer::~Buffer()
 {
+  spdlog::debug("Destroying buffer {}, size={}", buffer, allocation->GetSize());
   vmaDestroyBuffer(allocator, buffer, allocation);
 }
 
@@ -83,6 +87,8 @@ std::shared_ptr<BG::Image> BG::MemoryAllocator::AllocImage2D(glm::uvec2 extent, 
   VmaAllocation allocation;
   vmaCreateImage(allocator, &_imageInfo, &allocInfo, &image, &allocation, nullptr);
 
+  spdlog::debug("Allocating image x={}, y={}", extent.x, extent.y);
+
   return std::make_shared<BG::Image>(allocator, image, allocation);
 }
 
@@ -96,6 +102,7 @@ BG::MemoryAllocator::TransientAllocation BG::MemoryAllocator::AllocTransientUnif
 BG::Image::Image(VmaAllocator& allocator, vk::Image image)
   : allocator(allocator), image(image)
 {
+  allocated = false;
 }
 
 BG::Image::Image(VmaAllocator& allocator, vk::Image image, VmaAllocation allocation, bool color, bool depth)
@@ -105,5 +112,9 @@ BG::Image::Image(VmaAllocator& allocator, vk::Image image, VmaAllocation allocat
 
 BG::Image::~Image()
 {
-  vmaDestroyImage(allocator, image, allocation);
+  if (allocated)
+  {
+    spdlog::debug("Destroying image {}", image);
+    vmaDestroyImage(allocator, image, allocation);
+  }
 }

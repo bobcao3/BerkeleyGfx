@@ -20,7 +20,13 @@ namespace BG
     GLFWwindow* m_window;
 
     bool m_isRunning = true;
+    const int MAX_FRAMES_IN_FLIGHT = 2;
 
+    int m_width = 1280, m_height = 720;
+
+    double m_timeSpentLast100Frames = 1.0;
+
+    // Vulkan member stuff
     vk::UniqueInstance                 m_instance;
     vk::DispatchLoaderDynamic          m_dispatcher;
     DUniqueDebugUtilsMessengerEXT      m_debugMessenger;
@@ -30,11 +36,6 @@ namespace BG
     vk::UniqueSwapchainKHR             m_swapchain;
     vk::Format                         m_swapchainFormat;
 
-    std::vector<vk::Image>             m_swapchainImages;
-    std::vector<vk::UniqueImageView>   m_swapchainImageViews;
-    std::vector<std::shared_ptr<BG::Image>> m_depthImages;
-    std::vector<vk::UniqueImageView>   m_depthImageViews;
-
     vk::Queue                          m_graphcisQueue;
     vk::Queue                          m_computeQueue;
     vk::Queue                          m_transferQueue;
@@ -42,10 +43,29 @@ namespace BG
     vk::UniqueCommandPool              m_graphicsCmdPool;
     vk::UniqueCommandPool              m_guiCmdPool;
 
-    std::shared_ptr<BG::MemoryAllocator> m_memoryAllocator;
+    VkDescriptorPool                   m_ImGuiDescPool;
+    vk::UniqueRenderPass               m_ImGuiRenderPass;
 
-    VkDescriptorPool m_ImGuiDescPool;
-    vk::UniqueRenderPass m_ImGuiRenderPass;
+    // Vulkan per-frame stuff
+    std::vector<vk::UniqueSemaphore>      m_imageAvailableSemaphores;
+    std::vector<vk::UniqueSemaphore>      m_renderFinishedSemaphores;
+    std::vector<vk::UniqueFence>          m_inFlightFences;
+    std::vector<vk::UniqueFence*>         m_imagesInFlight;
+    std::vector<vk::UniqueCommandBuffer>  m_cmdBuffers;
+    std::vector<vk::UniqueCommandBuffer>  m_ImGuiCmdBuffers;
+    std::vector<vk::UniqueFramebuffer>    m_ImGuiFramebuffer;
+    std::vector<vk::UniqueDescriptorPool> m_descPools;
+
+    // Images & image views
+    std::vector<vk::Image>                  m_swapchainImages;
+    std::vector<vk::UniqueImageView>        m_swapchainImageViews;
+    std::vector<std::shared_ptr<BG::Image>> m_depthImages;
+    std::vector<vk::UniqueImageView>        m_depthImageViews;
+
+    // Misc components from BG
+    std::shared_ptr<MemoryAllocator> m_memoryAllocator;
+    std::shared_ptr<TextureSystem>   m_textureSystem;
+    std::shared_ptr<Tracker>         m_tracker;
 
     struct {
       int graphics = -1, compute = -1, transfer = -1;
@@ -69,24 +89,16 @@ namespace BG
     void CreateSemaphore();
     void CreateDescriptorPools();
 
-    int m_width = 1280, m_height = 720;
+    void DestroySwapChain();
+    void DestroyCmdPools();
+    void DestroyCmdBuffers();
+    void DestroySemaphore();
+    void DestroyDescriptorPools();
+    void DestroySurface();
+    void DestroyDevice();
+    void DestroyImGui();
 
-    double m_timeSpentLast100Frames = 1.0;
-
-    std::vector<vk::UniqueSemaphore> m_imageAvailableSemaphores;
-    std::vector<vk::UniqueSemaphore> m_renderFinishedSemaphores;
-    std::vector<vk::UniqueFence> m_inFlightFences;
-    std::vector<vk::UniqueFence*> m_imagesInFlight;
-    std::vector<vk::UniqueCommandBuffer> m_cmdBuffers;
-    std::vector<vk::UniqueCommandBuffer> m_ImGuiCmdBuffers;
-    std::vector<vk::UniqueFramebuffer> m_ImGuiFramebuffer;
-    std::vector<vk::UniqueDescriptorPool> m_descPools;
-
-    const int MAX_FRAMES_IN_FLIGHT = 2;
-
-    std::shared_ptr<TextureSystem> m_textureSystem;
-
-    std::shared_ptr<Tracker> m_tracker;
+    void DestroyImGuiSwapChain();
 
   public:
 

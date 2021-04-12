@@ -23,6 +23,7 @@ set(BerkeleyGfx_SRC
   src/texture_system.cpp
   src/lifetime_tracker.cpp
   src/static_callbacks.cpp
+  src/shader_graph.cpp
 
   ext/imgui/imgui.cpp
   ext/imgui/imgui_draw.cpp

@@ -70,6 +70,8 @@ namespace BG
     bool colorPlane = true;
     bool depthPlane = false;
 
+    bool allocated = true;
+
   public:
     vk::Image image;
     VmaAllocation allocation;
