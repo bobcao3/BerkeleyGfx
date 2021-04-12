@@ -334,8 +334,19 @@ Graph::Graph(std::string jsonFile, Renderer& r)
 
       stage->builtinParamBindPoint = stage->pipeline->GetBindingByName("iTime");
     }
-  }
+  
+    // Verify all bindings
+    for (auto textureBinding : stage->texture)
+    {
+      if (textureBinding.binding > 1024)
+      {
+        spdlog::error("Bad texture binding! Check whether the uniform name matches the name in the JSON file ({} in stage {})", textureBinding.name, stage->name);
+        throw std::runtime_error("Bad binding");
+      }
+    }
 
+  }
+  
   startTime = std::chrono::steady_clock::now();
 }
 
