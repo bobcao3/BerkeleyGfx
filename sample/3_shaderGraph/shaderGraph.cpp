@@ -37,23 +37,39 @@ int main(int, char**)
 
   std::shared_ptr<ShaderGraph::Graph> graph;
 
+  std::string graphFile = SRC_DIR"/sample/3_shaderGraph/graph.json";
+
+  bool reload = false;
+
   r.Run(
     // Init
     [&]() {
       // Load shader graph
-      graph = std::make_shared<ShaderGraph::Graph>(SRC_DIR"/sample/3_shaderGraph/graph.json", r);
+      graph = std::make_shared<ShaderGraph::Graph>(graphFile, r);
     },
     // Render
     [&](Renderer::Context& ctx) {
       int width = r.getWidth(), height = r.getHeight();
 
+      if (reload)
+      {
+        r.getDevice().waitIdle(); // Wait for all previous frames to finish
+        graph = std::make_shared<ShaderGraph::Graph>(graphFile, r);
+        reload = false;
+      }
+
       ctx.cmdBuffer.Begin();
-      graph->Render(r, ctx);
+      if (graph) graph->Render(r, ctx);
       ctx.cmdBuffer.End();
     },
     // GUI Thread
     [&]() {
       graph->RenderGUI();
+
+      if (ImGui::Button("Reload Shaders"))
+      {
+        reload = true; // We want to reload on the main thread
+      }
     },
     // Cleanup
     [&]() {
