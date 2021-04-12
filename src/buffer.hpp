@@ -3,7 +3,7 @@
 #include "berkeley_gfx.hpp"
 
 #include <vk_mem_alloc.h>
-#include <Vulkan/Vulkan.hpp>
+#include <vulkan/vulkan.hpp>
 
 namespace BG
 {

@@ -47,7 +47,7 @@ add_subdirectory(ext/glm)
 add_subdirectory(ext/glslang)
 add_subdirectory(ext/spdlog)
 
-find_package(Vulkan)
+find_package(Vulkan REQUIRED)
 
 target_link_libraries(BerkeleyGfx PUBLIC Vulkan::Vulkan)
 target_link_libraries(BerkeleyGfx PUBLIC glfw)

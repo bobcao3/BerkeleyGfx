@@ -2,7 +2,7 @@
 
 #include "berkeley_gfx.hpp"
 
-#include <Vulkan/Vulkan.hpp>
+#include <vulkan/vulkan.hpp>
 
 namespace BG
 {

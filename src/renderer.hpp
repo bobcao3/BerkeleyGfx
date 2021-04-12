@@ -3,7 +3,7 @@
 #include "berkeley_gfx.hpp"
 
 #include <GLFW/glfw3.h>
-#include <Vulkan/Vulkan.hpp>
+#include <vulkan/vulkan.hpp>
 
 #include <functional>
 

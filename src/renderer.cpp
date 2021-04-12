@@ -360,8 +360,17 @@ void BG::Renderer::CreateDevice()
   std::vector<const char*> deviceLayers;
 
   std::vector<const char*> deviceExtensions;
+  
+  auto deviceExtensionCapabilities = m_physicalDevice.enumerateDeviceExtensionProperties();
 
   deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+
+  spdlog::debug("Device Extensions:");
+  for (auto& cap : deviceExtensionCapabilities)
+  {
+    spdlog::debug("- {}", cap.extensionName);
+    if (std::string(cap.extensionName.data()) == "VK_KHR_portability_subset") deviceExtensions.push_back(cap.extensionName);
+  }
 
   vk::PhysicalDeviceFeatures deviceFeatures;
 
