@@ -537,12 +537,22 @@ void BG::Renderer::CreateSemaphore()
 
 void BG::Renderer::CreateDescriptorPools()
 {
-  vk::DescriptorPoolSize poolSize;
-  poolSize.descriptorCount = 1024;
+  std::vector<vk::DescriptorPoolSize> poolSizes = {
+      { vk::DescriptorType::eSampler, 1000 },
+      { vk::DescriptorType::eCombinedImageSampler, 1000 },
+      { vk::DescriptorType::eSampledImage, 1000 },
+      { vk::DescriptorType::eStorageImage, 1000 },
+      { vk::DescriptorType::eUniformTexelBuffer, 1000 },
+      { vk::DescriptorType::eStorageTexelBuffer, 1000 },
+      { vk::DescriptorType::eUniformBuffer, 1000 },
+      { vk::DescriptorType::eStorageBuffer, 1000 },
+      { vk::DescriptorType::eUniformBufferDynamic, 1000 },
+      { vk::DescriptorType::eStorageBufferDynamic, 1000 },
+      { vk::DescriptorType::eInputAttachment, 1000 }
+  };
 
   vk::DescriptorPoolCreateInfo info;
-  info.poolSizeCount = 1;
-  info.pPoolSizes = &poolSize;
+  info.setPoolSizes(poolSizes);
   info.maxSets = 256;
 
   for (int i = 0; i < m_swapchainImages.size(); i++)
