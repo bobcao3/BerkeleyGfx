@@ -15,10 +15,9 @@ namespace BG
 
     uint32_t m_currentFrame;
 
-    std::vector<std::shared_ptr<Buffer>> m_buffers;
-    std::vector<uint32_t> m_buffersBytesAllocated;
+    std::vector<std::vector<std::shared_ptr<Buffer>>> m_buffers;
 
-    const uint32_t TRANSIENT_BLOCK_SIZE = 32 << 20;
+    VmaPool transientPool;
 
   public:
 
@@ -43,7 +42,7 @@ namespace BG
       glm::uvec2 extent, int mipLevels, vk::Format format, vk::ImageUsageFlags usage,
       vk::ImageLayout layout = vk::ImageLayout::eUndefined, VmaMemoryUsage memoryUsage = VMA_MEMORY_USAGE_GPU_ONLY);
 
-    TransientAllocation AllocTransientUniformBuffer(size_t size);
+    std::shared_ptr<Buffer> AllocTransient(size_t size, vk::BufferUsageFlags usage, VmaMemoryUsage memoryUsage = VMA_MEMORY_USAGE_CPU_TO_GPU);
   };
 
   class Buffer

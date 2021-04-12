@@ -13,8 +13,6 @@
 using namespace BG;
 using namespace BG::ShaderGraph;
 
-size_t ShaderUniformSize = sizeof(ShaderUniform) % 0x40 > 0 ? (sizeof(ShaderUniform) / 0x40 + 1) * 0x40 : sizeof(ShaderUniform);
-
 void Parameter::RenderGUI()
 {
   if (ImGui::TreeNodeEx(this, 0, "%s (Unknown type)", name.data()))
@@ -77,9 +75,6 @@ void main() {
 
 Graph::Graph(std::string jsonFile, Renderer& r)
 {
-  // Allocate a constants buffer
-  uniformBuffer = r.getMemoryAllocator()->AllocCPU2GPU(ShaderUniformSize * r.getSwapchainImageViews().size(), vk::BufferUsageFlagBits::eUniformBuffer);
-
   using json = nlohmann::json;
 
   std::ifstream f(jsonFile);
@@ -256,7 +251,7 @@ void Graph::Render(Renderer& r, Renderer::Context& ctx, std::string target)
   auto descSet = pipeline->AllocDescSet(ctx.descPool);
 
   if (stage->builtinParamBindPoint >= 0)
-    pipeline->BindGraphicsUniformBuffer(*pipeline, descSet, uniformBuffer, ShaderUniformSize * ctx.imageIndex, uint32_t(sizeof(ShaderUniform)), stage->builtinParamBindPoint);
+    pipeline->BindGraphicsUniformBuffer(*pipeline, descSet, uniformBuffer, 0, uint32_t(sizeof(ShaderUniform)), stage->builtinParamBindPoint);
 
   for (auto& textureBinding : stage->texture)
   {
@@ -302,14 +297,14 @@ void Graph::Render(Renderer& r, Renderer::Context& ctx, std::string target)
 void Graph::Render(Renderer& r, Renderer::Context& ctx)
 {
   // Map & upload the constants
+  uniformBuffer = r.getMemoryAllocator()->AllocTransient(sizeof(ShaderUniform), vk::BufferUsageFlagBits::eUniformBuffer);
   auto now = std::chrono::steady_clock::now();
-  uint8_t* uniformBufferGPU = uniformBuffer->Map<uint8_t>();
-  auto& uniform = *(ShaderUniform*)(uniformBufferGPU + ShaderUniformSize * ctx.imageIndex);
-  uniform.iResolution = glm::vec3(r.getWidth(), r.getHeight(), 1.0f);
-  uniform.iTime = float((now - startTime).count() * 1e-9);
-  uniform.iMouse = glm::vec4(r.getCursorPos(), 0.0f, 0.0f);
-  uniform.iTimeDelta = float((now - lastTime).count() * 1e-9);
-  uniform.iFrame = int(frameCount);
+  ShaderUniform* uniformBufferGPU = uniformBuffer->Map<ShaderUniform>();
+  uniformBufferGPU->iResolution = glm::vec3(r.getWidth(), r.getHeight(), 1.0f);
+  uniformBufferGPU->iTime = float((now - startTime).count() * 1e-9);
+  uniformBufferGPU->iMouse = glm::vec4(r.getCursorPos(), 0.0f, 0.0f);
+  uniformBufferGPU->iTimeDelta = float((now - lastTime).count() * 1e-9);
+  uniformBufferGPU->iFrame = int(frameCount);
   uniformBuffer->UnMap();
   lastTime = now;
   frameCount++;

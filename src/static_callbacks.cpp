@@ -21,7 +21,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL STATIC_DebugCallback(
 
   spdlog::error("validation layer: {}", pCallbackData->pMessage);
 
-  throw std::runtime_error("Vulkan Validation Error");
+  // throw std::runtime_error("Vulkan Validation Error");
 
   return VK_FALSE;
 }

@@ -272,7 +272,7 @@ int main(int, char**)
       // Unmap the GPU buffer
       indexBuffer->UnMap();
 
-      uniformBuffer = r.getMemoryAllocator()->AllocCPU2GPU(sizeof(ShaderUniform) * r.getSwapchainImageViews().size(), vk::BufferUsageFlagBits::eUniformBuffer);
+      // uniformBuffer = r.getMemoryAllocator()->AllocCPU2GPU(sizeof(ShaderUniform) * r.getSwapchainImageViews().size(), vk::BufferUsageFlagBits::eUniformBuffer);
 
       // Create a empty pipline
       pipeline = r.CreatePipeline();
@@ -303,14 +303,16 @@ int main(int, char**)
       projMtx[1][1] *= -1.0;
 
       // Map & upload the constants
+      uniformBuffer = r.getMemoryAllocator()->AllocTransient(sizeof(ShaderUniform) * r.getSwapchainImageViews().size(), vk::BufferUsageFlagBits::eUniformBuffer);
       ShaderUniform* uniformBufferGPU = uniformBuffer->Map<ShaderUniform>();
-      auto& uniform = uniformBufferGPU[ctx.imageIndex];
-      uniform.viewProjMtx = projMtx * viewMtx;
+      uniformBufferGPU->viewProjMtx = projMtx * viewMtx;
       uniformBuffer->UnMap();
+      
+      r.getDevice().waitIdle();
 
       // Allocate descriptor sets & bind uniforms
       auto descSet = pipeline->AllocDescSet(ctx.descPool);
-      pipeline->BindGraphicsUniformBuffer(*pipeline, descSet, uniformBuffer, sizeof(ShaderUniform) * ctx.imageIndex, sizeof(ShaderUniform), 0);
+      pipeline->BindGraphicsUniformBuffer(*pipeline, descSet, uniformBuffer, 0, sizeof(ShaderUniform), 0);
       pipeline->BindGraphicsImageView(*pipeline, descSet, r.getTextureSystem()->GetImageView({ 0 }), vk::ImageLayout::eShaderReadOnlyOptimal, r.getTextureSystem()->GetSampler(), 1);
 
       // Begin & resets the command buffer

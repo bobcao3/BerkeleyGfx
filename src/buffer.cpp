@@ -13,24 +13,42 @@ BG::MemoryAllocator::MemoryAllocator(vk::PhysicalDevice pDevice, vk::Device devi
 
   vmaCreateAllocator(&allocatorInfo, &allocator);
 
-  for (uint32_t i = 0; i < maxFramesInFlight; i++)
-  {
-    m_buffers.push_back(AllocCPU2GPU(TRANSIENT_BLOCK_SIZE, vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eTransferSrc));
-  }
+  m_buffers.resize(maxFramesInFlight);
 
-  m_buffersBytesAllocated.resize(maxFramesInFlight);
+  VkBufferCreateInfo bufferInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+  bufferInfo.size = 0x100;
+  bufferInfo.usage = VkBufferUsageFlags(vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eTransferSrc);
+
+  VmaAllocationCreateInfo allocInfo = {};
+  allocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+
+  uint32_t memoryTypeIndex;
+  vmaFindMemoryTypeIndexForBufferInfo(allocator, &bufferInfo, &allocInfo, &memoryTypeIndex);
+
+  // Create a pool that can have at most maxFramesInFlight * 4 blocks, 32 MiB each.
+  VmaPoolCreateInfo poolCreateInfo = {};
+  poolCreateInfo.memoryTypeIndex = memoryTypeIndex;
+  poolCreateInfo.blockSize = 32ull * 1024 * 1024;
+  poolCreateInfo.maxBlockCount = 4 * maxFramesInFlight;
+  poolCreateInfo.flags = VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT;
+
+  vmaCreatePool(allocator, &poolCreateInfo, &transientPool);
 }
 
 BG::MemoryAllocator::~MemoryAllocator()
 {
-  m_buffers.clear();
+  for (auto& list : m_buffers)
+  {
+    list.clear();
+  }
+  vmaDestroyPool(allocator, transientPool);
   vmaDestroyAllocator(allocator);
 }
 
 void BG::MemoryAllocator::NewFrame()
 {
   m_currentFrame = (m_currentFrame + 1) % m_buffers.size();
-  m_buffersBytesAllocated[m_currentFrame] = 0;
+  m_buffers[m_currentFrame].clear();
 }
 
 std::shared_ptr<BG::Buffer> BG::MemoryAllocator::Alloc(size_t size, vk::BufferUsageFlags usage, VmaMemoryUsage memoryUsage)
@@ -46,8 +64,6 @@ std::shared_ptr<BG::Buffer> BG::MemoryAllocator::Alloc(size_t size, vk::BufferUs
   VmaAllocation allocation;
   vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, &allocation, nullptr);
 
-  spdlog::debug("Allocating memory size={}", size);
-
   return std::make_shared<BG::Buffer>(allocator, buffer, allocation);
 }
 
@@ -58,7 +74,6 @@ BG::Buffer::Buffer(VmaAllocator& allocator, vk::Buffer buffer, VmaAllocation all
 
 BG::Buffer::~Buffer()
 {
-  spdlog::debug("Destroying buffer {}, size={}", buffer, allocation->GetSize());
   vmaDestroyBuffer(allocator, buffer, allocation);
 }
 
@@ -87,16 +102,28 @@ std::shared_ptr<BG::Image> BG::MemoryAllocator::AllocImage2D(glm::uvec2 extent, 
   VmaAllocation allocation;
   vmaCreateImage(allocator, &_imageInfo, &allocInfo, &image, &allocation, nullptr);
 
-  spdlog::debug("Allocating image x={}, y={}", extent.x, extent.y);
-
   return std::make_shared<BG::Image>(allocator, image, allocation);
 }
 
-BG::MemoryAllocator::TransientAllocation BG::MemoryAllocator::AllocTransientUniformBuffer(size_t size)
+std::shared_ptr<BG::Buffer> BG::MemoryAllocator::AllocTransient(size_t size, vk::BufferUsageFlags usage, VmaMemoryUsage memoryUsage)
 {
-  uint32_t currentAllocated = m_buffersBytesAllocated[m_currentFrame];
-  m_buffersBytesAllocated[m_currentFrame] += uint32_t(size);
-  return TransientAllocation{ m_buffers[m_currentFrame], currentAllocated };
+  VkBufferCreateInfo bufferInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+  bufferInfo.size = size;
+  bufferInfo.usage = VkBufferUsageFlags(usage);
+
+  VmaAllocationCreateInfo allocInfo = {};
+  allocInfo.usage = memoryUsage;
+  allocInfo.pool = transientPool;
+
+  VkBuffer buffer;
+  VmaAllocation allocation;
+  vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, &allocation, nullptr);
+
+  auto ptr = std::make_shared<BG::Buffer>(allocator, buffer, allocation);
+
+  m_buffers[m_currentFrame].push_back(ptr);
+
+  return ptr;
 }
 
 BG::Image::Image(VmaAllocator& allocator, vk::Image image)
@@ -114,7 +141,6 @@ BG::Image::~Image()
 {
   if (allocated)
   {
-    spdlog::debug("Destroying image {}", image);
     vmaDestroyImage(allocator, image, allocation);
   }
 }
