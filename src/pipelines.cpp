@@ -64,6 +64,7 @@ std::vector<uint32_t> BG::Pipeline::BuildProgramFromSrc(std::string shaders, int
   if (!shader.parse(&Resources, 100, false, messages))
   {
     spdlog::error("GLSL Parsing Failed\n{}{}", shader.getInfoLog(), shader.getInfoDebugLog());
+    throw std::runtime_error("GLSL Parsing Error");
   }
 
   glslang::TProgram program;
@@ -72,6 +73,7 @@ std::vector<uint32_t> BG::Pipeline::BuildProgramFromSrc(std::string shaders, int
   if (!program.link(messages))
   {
     spdlog::error("Link failed");
+    throw std::runtime_error("GLSL Linking Error");
   }
   
   auto spirv = BuildSPIRV(program, shaderType);

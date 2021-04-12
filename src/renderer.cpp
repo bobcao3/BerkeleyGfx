@@ -49,10 +49,15 @@ void BG::Renderer::InitVulkan()
   CreateSemaphore();
 }
 
+#include "embed_font.cpp"
+
 void SetStyleDark()
 {
   ImGui::GetStyle().FrameRounding = 4.0f;
   ImGui::GetStyle().GrabRounding = 4.0f;
+
+  ImGuiIO& io = ImGui::GetIO();
+  io.Fonts->AddFontFromMemoryCompressedTTF(ImGuiFont_RobotoMedium_compressed_data, ImGuiFont_RobotoMedium_compressed_size, 16);
 
   ImVec4* colors = ImGui::GetStyle().Colors;
   colors[ImGuiCol_Text] = ImVec4(0.95f, 0.96f, 0.98f, 1.00f);

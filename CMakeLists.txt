@@ -70,6 +70,8 @@ set(BerkeleyGfx_INCLUDE
 
 target_include_directories(BerkeleyGfx PUBLIC ${BerkeleyGfx_INCLUDE})
 
+add_compile_definitions(SRC_DIR="${CMAKE_SOURCE_DIR}")
+
 # Sample projects
 
 add_executable(SampleHelloTriangle "sample/triangle.cpp")
@@ -77,7 +79,6 @@ target_link_libraries(SampleHelloTriangle PUBLIC BerkeleyGfx)
 target_include_directories(SampleHelloTriangle PUBLIC ${BerkeleyGfx_INCLUDE})
 
 add_executable(SampleGlTFViewer "sample/1_glTFViewer/gltfViewer.cpp")
-target_compile_definitions(SampleGlTFViewer PUBLIC SRC_DIR="${CMAKE_SOURCE_DIR}")
 target_link_libraries(SampleGlTFViewer PUBLIC BerkeleyGfx)
 target_include_directories(SampleGlTFViewer PUBLIC ${BerkeleyGfx_INCLUDE})
 
@@ -87,10 +88,8 @@ target_link_libraries(SampleTerrain PUBLIC BerkeleyGfx)
 target_include_directories(SampleTerrain PUBLIC ${BerkeleyGfx_INCLUDE})
 
 add_executable(SampleShaderGraph "sample/3_shaderGraph/shaderGraph.cpp")
-target_compile_definitions(SampleShaderGraph PUBLIC SRC_DIR="${CMAKE_SOURCE_DIR}")
 target_link_libraries(SampleShaderGraph PUBLIC BerkeleyGfx)
 target_include_directories(SampleShaderGraph PUBLIC ${BerkeleyGfx_INCLUDE})
-set_property(TARGET SampleShaderGraph PROPERTY CXX_STANDARD 17)
 
 # Set default project when generating a solution file
 

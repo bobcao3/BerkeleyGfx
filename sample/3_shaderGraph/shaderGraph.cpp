@@ -45,7 +45,15 @@ int main(int, char**)
     // Init
     [&]() {
       // Load shader graph
-      graph = std::make_shared<ShaderGraph::Graph>(graphFile, r);
+      try
+      {
+        graph = std::make_shared<ShaderGraph::Graph>(graphFile, r);
+      }
+      catch (const std::runtime_error& error)
+      {
+        graph = nullptr;
+        spdlog::error("Shader load failed {}", error.what());
+      }
     },
     // Render
     [&](Renderer::Context& ctx) {
@@ -54,17 +62,43 @@ int main(int, char**)
       if (reload)
       {
         r.getDevice().waitIdle(); // Wait for all previous frames to finish
-        graph = std::make_shared<ShaderGraph::Graph>(graphFile, r);
+
+        try
+        {
+          graph = std::make_shared<ShaderGraph::Graph>(graphFile, r);
+        }
+        catch (const std::runtime_error& error)
+        {
+          graph = nullptr;
+          spdlog::error("Shader reload failed {}", error.what());
+        }
+
         reload = false;
       }
 
       ctx.cmdBuffer.Begin();
-      if (graph) graph->Render(r, ctx);
+      if (graph)
+        graph->Render(r, ctx);
+      else
+        ctx.cmdBuffer.ImageTransition(ctx.image, vk::PipelineStageFlagBits::eBottomOfPipe, vk::PipelineStageFlagBits::eTopOfPipe, vk::ImageLayout::eUndefined, vk::ImageLayout::ePresentSrcKHR, vk::ImageAspectFlagBits::eColor);
       ctx.cmdBuffer.End();
     },
     // GUI Thread
     [&]() {
-      graph->RenderGUI();
+      if (graph)
+        graph->RenderGUI();
+      else
+      {
+        ImGui::SetNextWindowPos(ImVec2(5, 5));
+        ImGui::SetNextWindowSize(ImVec2(400, 50));
+        ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.8f, 0.2f, 0.1f, 0.7f));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+        ImGui::Begin("Error", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
+        ImGui::Text("No shaders loaded. Check console output for errors");
+        ImGui::Text("Click reload to try reload");
+        ImGui::End();
+        ImGui::PopStyleColor(2);
+      }
 
       if (ImGui::Button("Reload Shaders"))
       {
