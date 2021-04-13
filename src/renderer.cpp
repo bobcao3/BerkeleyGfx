@@ -237,7 +237,7 @@ void BG::Renderer::CreateInstance()
   uint32_t glfwExtensionCount = 0;
   const char** glfwExtensions;
   glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-  for (int i = 0; i < glfwExtensionCount; i++) glfwExtensionsVec.push_back(glfwExtensions[i]);
+  for (uint32_t i = 0; i < glfwExtensionCount; i++) glfwExtensionsVec.push_back(glfwExtensions[i]);
 
   std::vector<const char*> instanceLayers;
   if (m_enableValidationLayers)
@@ -324,7 +324,7 @@ void BG::Renderer::PickPhysicalDevice()
       i++;
     }
 
-    int score = (totalLocalMemorySize >> 20) + (isDiscrete ? 2000 : 0);
+    int score = int(totalLocalMemorySize >> 20) + (isDiscrete ? 2000 : 0);
 
     if (score > highest_score && graphicsQueue != -1)
     {
@@ -500,7 +500,7 @@ void BG::Renderer::CreateSwapChain()
 
   m_swapchainFormat = surfaceFormat.format;
 
-  for (const auto& i : m_swapchainImages)
+  for (int i = 0; i < m_swapchainImages.size(); i++)
   {
     auto image = m_memoryAllocator->AllocImage2D(glm::uvec2(m_width, m_height), 1, vk::Format::eD32Sfloat, vk::ImageUsageFlagBits::eDepthStencilAttachment);
     m_depthImages.push_back(image);
@@ -741,16 +741,23 @@ void BG::Renderer::Run(std::function<void()> init, std::function<void(Context&)>
     // Check for window messages to process.
     glfwPollEvents();
 
-    imageIndex = m_device->acquireNextImageKHR(m_swapchain.get(), UINT64_MAX, m_imageAvailableSemaphores[currentFrame].get(), nullptr);
+    auto acquireNextImageResult = m_device->acquireNextImageKHR(m_swapchain.get(), UINT64_MAX, m_imageAvailableSemaphores[currentFrame].get(), nullptr);
+
+    if (acquireNextImageResult.result != vk::Result::eSuccess)
+    {
+      spdlog::warn("Acquire next image failed!");
+    }
+
+    imageIndex = acquireNextImageResult.value;
 
     if (m_imagesInFlight[imageIndex] != nullptr)
     {
-      m_device->waitForFences(1, &m_imagesInFlight[imageIndex]->get(), true, UINT64_MAX);
+      if (m_device->waitForFences(1, &m_imagesInFlight[imageIndex]->get(), true, UINT64_MAX) != vk::Result::eSuccess) throw std::runtime_error("Wait for fence failed");
     }
     else if (std::find(m_imagesInFlight.begin(), m_imagesInFlight.end(), &m_inFlightFences[currentFrame]) != m_imagesInFlight.end())
     {
       // This happens when there are more images than the in-flight limit
-      m_device->waitForFences(1, &m_inFlightFences[currentFrame].get(), true, UINT64_MAX);
+      if (m_device->waitForFences(1, &m_inFlightFences[currentFrame].get(), true, UINT64_MAX) != vk::Result::eSuccess) throw std::runtime_error("Wait for fence failed");
     }
 
     m_imagesInFlight[imageIndex] = &m_inFlightFences[currentFrame];
@@ -768,7 +775,7 @@ void BG::Renderer::Run(std::function<void()> init, std::function<void(Context&)>
     m_memoryAllocator->NewFrame();
     m_tracker->NewFrame();
 
-    float time = (std::chrono::steady_clock::now() - startTimeSteady).count() * 1e-9;
+    float time = float((std::chrono::steady_clock::now() - startTimeSteady).count() * 1e-9);
     CommandBuffer bgCmdBuf(m_device.get(), m_cmdBuffers[imageIndex].get(), *m_tracker);
     Context ctx{
       bgCmdBuf,
@@ -797,9 +804,9 @@ void BG::Renderer::Run(std::function<void()> init, std::function<void(Context&)>
     submitInfo.setCommandBuffers(submitBuffers);
     submitInfo.setSignalSemaphores(m_renderFinishedSemaphores[ctx.currentFrame].get());
 
-    m_device->resetFences(1, &m_imagesInFlight[imageIndex]->get());
+    auto result = m_device->resetFences(1, &m_imagesInFlight[imageIndex]->get());
 
-    auto result = m_graphcisQueue.submit(1, &submitInfo, m_inFlightFences[ctx.currentFrame].get());
+    result = m_graphcisQueue.submit(1, &submitInfo, m_inFlightFences[ctx.currentFrame].get());
 
     uint32_t imageIndexU32 = imageIndex;
 

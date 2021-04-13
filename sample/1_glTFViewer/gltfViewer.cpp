@@ -210,10 +210,12 @@ void load_gltf_model(Renderer& r)
     load_gltf_node(model, sceneRootNodeId, transform);
   }
 
+  /*
   for (auto& m : model.materials)
   {
     
   }
+  */
 
   for (auto& img : model.images)
   {

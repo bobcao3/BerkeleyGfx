@@ -53,8 +53,6 @@ int main(int, char**)
     },
     // Render
     [&](Renderer::Context& ctx) {
-      int width = r.getWidth(), height = r.getHeight();
-
       if (reload)
       {
         r.getDevice().waitIdle(); // Wait for all previous frames to finish

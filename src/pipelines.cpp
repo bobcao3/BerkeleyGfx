@@ -61,7 +61,7 @@ std::vector<uint32_t> BG::Pipeline::BuildProgramFromSrc(std::string shaders, int
 
   const int DefaultVersion = 100;
 
-  if (!shader.parse(&Resources, 100, false, messages))
+  if (!shader.parse(&Resources, DefaultVersion, false, messages))
   {
     spdlog::error("GLSL Parsing Failed\n{}{}", shader.getInfoLog(), shader.getInfoDebugLog());
     throw std::runtime_error("GLSL Parsing Error");
@@ -180,7 +180,7 @@ void BG::Pipeline::AddAttribute(VertexBufferBinding binding, int location, vk::F
   desc.setBinding(binding.binding);
   desc.setLocation(location);
   desc.setFormat(format);
-  desc.setOffset(offset);
+  desc.setOffset(uint32_t(offset));
 
   m_attributeDescriptions.push_back(desc);
 }
@@ -295,18 +295,17 @@ void BG::Pipeline::BuildPipeline()
 
   std::vector<vk::AttachmentReference> attachments;
 
-  uint32_t i = 0;
-  for (auto& attachment : m_attachments)
+  uint32_t attachmentCount;
+  for (attachmentCount = 0; attachmentCount < m_attachments.size(); attachmentCount++)
   {
-    attachments.push_back({ i, vk::ImageLayout::eColorAttachmentOptimal });
-    i++;
+    attachments.push_back({ attachmentCount, vk::ImageLayout::eColorAttachmentOptimal });
   }
 
   vk::AttachmentReference depthAttachmentRef;
 
   if (m_useDepthAttachment)
   {
-    depthAttachmentRef.attachment = i;
+    depthAttachmentRef.attachment = attachmentCount;
     depthAttachmentRef.layout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
   }
 
@@ -332,7 +331,7 @@ void BG::Pipeline::BuildPipeline()
 
   std::vector<vk::PipelineColorBlendAttachmentState> colorBlendAttachments;
 
-  for (auto& attachment : m_attachments)
+  for (int i = 0; i < m_attachments.size(); i++)
   {
     colorBlendAttachments.push_back({
       false,
@@ -372,7 +371,11 @@ void BG::Pipeline::BuildPipeline()
   pipelineInfo.renderPass = m_renderpass.get();
   pipelineInfo.subpass = 0;
   
-  m_pipeline = m_device.createGraphicsPipelineUnique(nullptr, pipelineInfo, nullptr);
+  auto result = m_device.createGraphicsPipelineUnique(nullptr, pipelineInfo, nullptr);
+
+  if (result.result != vk::Result::eSuccess) throw std::runtime_error("Create pipeline failed");
+
+  m_pipeline = std::move(result.value);
 
   m_created = true;
 }
@@ -494,7 +497,7 @@ void BG::Pipeline::BindRenderPass(
 
   std::vector<vk::ClearValue> clearValues;
 
-  for (auto& attachment : m_attachments)
+  for (int i = 0; i < m_attachments.size(); i++)
   {
     clearValues.push_back({});
   }

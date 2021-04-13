@@ -411,7 +411,7 @@ void Graph::Render(Renderer& r, Renderer::Context& ctx, std::string target)
     if (textureName.rfind("previous_") == 0)
     {
       textureName = textureName.substr(9);
-      int size = r.getSwapchainImages().size();
+      int size = int(r.getSwapchainImages().size());
       imageIndex = (imageIndex - 1 + size) % size;
     }
 

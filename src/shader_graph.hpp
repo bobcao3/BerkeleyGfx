@@ -24,6 +24,8 @@ namespace BG::ShaderGraph
 
     virtual void RenderGUI();
     virtual void PushParameter(BG::CommandBuffer& cmdBuf, BG::Pipeline& p);
+
+    virtual ~Parameter() {}
   };
 
   struct FloatParameter : Parameter

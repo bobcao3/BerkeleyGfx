@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.14)
 
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
-    message(FATAL_ERROR "Do not build in-source. Please remove CMakeCache.txt and the CMakeFiles/ directory. Then build out-of-source.")
+    message(FATAL_ERROR "Do not build in-source. Please remove CMakeCache.txt and the CMakeFiles/ directory. Then build out-of-source (e.g. in build/ directory)")
 endif()
 
 # The library itself
@@ -10,7 +10,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 project(
-    "BoilerPlate"
+    "BerkeleyGfx"
     VERSION 0.0.0
     LANGUAGES C CXX
 )
