@@ -33,7 +33,7 @@ int main(int, char**)
 
   std::shared_ptr<ShaderGraph::Graph> graph;
 
-  std::string graphFile = SRC_DIR"/sample/3_shaderGraph/2_customTexture/graph.json";
+  std::string graphFile = SRC_DIR"/sample/3_shaderGraph/1_gameOfLife/graph.json";
 
   bool reload = false;
 

@@ -51,13 +51,13 @@ const std::vector<Vertex> vertices = {
 
 int main(int, char**)
 {
+  // Initialize the renderer
   Renderer r("Sample Project - Hello Triangle", true);
 
   Pipeline::InitBackend();
 
+  // Our data / objects for rendering
   std::shared_ptr<Pipeline> pipeline;
-
-  std::vector<vk::UniqueFramebuffer> framebuffers;
 
   std::shared_ptr<Buffer> vertexBuffer;
 
@@ -91,15 +91,6 @@ int main(int, char**)
       pipeline->AddAttachment(r.getSwapChainFormat(), vk::ImageLayout::eUndefined, vk::ImageLayout::ePresentSrcKHR);
       // Build the pipeline
       pipeline->BuildPipeline();
-
-      int width = r.getWidth(), height = r.getHeight();
-
-      // Create a Framebuffer (specifications of the render targets) for each SwapChain image
-      for (auto& imageView : r.getSwapchainImageViews())
-      {
-        std::vector<vk::ImageView> renderTarget{ imageView.get() };
-        framebuffers.push_back(r.CreateFramebuffer(pipeline->GetRenderPass(), renderTarget, width, height));
-      }
     },
     // Render
     [&](Renderer::Context& ctx) {
@@ -107,8 +98,9 @@ int main(int, char**)
 
       // Begin & resets the command buffer
       ctx.cmdBuffer.Begin();
-      // Use the RenderPass from the pipeline we built
-      ctx.cmdBuffer.WithRenderPass(*pipeline, framebuffers[ctx.imageIndex].get(), glm::uvec2(width, height), [&](){
+      // Use the RenderPass from the pipeline we built, and render to the framebuffer target
+      std::vector<vk::ImageView> renderTarget = { ctx.imageView };
+      ctx.cmdBuffer.WithRenderPass(*pipeline, renderTarget, glm::uvec2(width, height), [&](){
         // Bind the pipeline to use
         ctx.cmdBuffer.BindPipeline(*pipeline);
         // Bind the vertex buffer
