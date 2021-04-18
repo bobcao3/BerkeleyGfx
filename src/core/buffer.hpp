@@ -15,17 +15,11 @@ namespace BG
 
     uint32_t m_currentFrame;
 
-    std::vector<std::vector<std::shared_ptr<Buffer>>> m_buffers;
+    std::vector<std::vector<Buffer*>> m_buffers;
 
     VmaPool transientPool;
 
   public:
-
-    struct TransientAllocation
-    {
-      std::shared_ptr<Buffer> buffer;
-      uint32_t offset;
-    };
 
     MemoryAllocator(vk::PhysicalDevice pDevice, vk::Device device, vk::Instance instance, uint32_t maxFramesInFlight);
     ~MemoryAllocator();

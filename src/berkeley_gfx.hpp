@@ -12,14 +12,16 @@
 
 namespace BG
 {
-  class Renderer;
-  class Pipeline;
-  class CommandBuffer;
-  class MemoryAllocator;
   class Buffer;
+  class CommandBuffer;
   class Image;
+  class MemoryAllocator;
+  class MeshSystem;
+  class Pipeline;
+  class Renderer;
   class TextureSystem;
   class Tracker;
+  class BBox;
 
   struct VertexBufferBinding {
     int binding;
