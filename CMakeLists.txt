@@ -16,14 +16,16 @@ project(
 )
 
 set(BerkeleyGfx_SRC
+  src/core/pipelines.cpp
+  src/core/command_buffer.cpp
+  src/core/buffer.cpp
+  src/core/lifetime_tracker.cpp
+  src/core/static_callbacks.cpp
+
+  src/highlevel/texture_system.cpp
+  src/highlevel/shader_graph.cpp
+
   src/renderer.cpp
-  src/pipelines.cpp
-  src/command_buffer.cpp
-  src/buffer.cpp
-  src/texture_system.cpp
-  src/lifetime_tracker.cpp
-  src/static_callbacks.cpp
-  src/shader_graph.cpp
 
   ext/imgui/imgui.cpp
   ext/imgui/imgui_draw.cpp
@@ -66,6 +68,8 @@ set(BerkeleyGfx_INCLUDE
   ext/SPRIV-Reflect
   ext/
   src
+  src/core
+  src/highlevel
 )
 
 target_include_directories(BerkeleyGfx PUBLIC ${BerkeleyGfx_INCLUDE})
