@@ -78,7 +78,7 @@ add_compile_definitions(SRC_DIR="${CMAKE_SOURCE_DIR}")
 
 # Sample projects
 
-add_executable(SampleHelloTriangle "sample/triangle.cpp")
+add_executable(SampleHelloTriangle "sample/0_triangle/triangle.cpp")
 target_link_libraries(SampleHelloTriangle PUBLIC BerkeleyGfx)
 target_include_directories(SampleHelloTriangle PUBLIC ${BerkeleyGfx_INCLUDE})
 
