@@ -40,6 +40,8 @@ This project exports multiple CMake targets. Once you built the project, there w
 
 ### Sample 0: SampleHelloTriangle
 
+![](sample/0_triangle.PNG)
+
 This is the Hello World of graphics: displaying a triangle on screen.
 
 For the init stage of the sample:
@@ -58,6 +60,8 @@ For more details, checkout the comments in the source code.
 
 ### Sample 1: SampleGLTFViewer
 
+![](sample/1_gltfViewer.PNG)
+
 This sample demostrates how you can load & parse a GLTF model using `tinygltf`, and renders it with our library. In order for this to run, you will need to run the `get_assets.sh` in the source directory to download the GLTF sample models.
 
 The details of GLTF format can be found here: https://www.khronos.org/gltf/
@@ -66,9 +70,13 @@ One notable difference from the last sample is that we now introduce the concept
 
 ### Sample 2: SampleTerrain
 
+![](sample/2_terrain.PNG)
+
 This sample creates a mesh grid & loads a height map image. The shaders can read the height map image and offset the vertices to render a terrain. This is very similar to dispalcement mapping.
 
 ### Sample 3: SampleShaderGraph
+
+![](sample/3_shaderGraph.PNG)
 
 ShaderGraph is a higher level API of Berkeley Gfx that provides very similar functionality to ShaderToy, while providing more control and easier UI to control the input parameters of shaders.
 
