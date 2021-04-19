@@ -114,7 +114,11 @@ namespace BG
       float time;
     };
 
+#ifdef _DEBUG
+    Renderer(std::string name, bool enableValidationLayers = true);
+#else
     Renderer(std::string name, bool enableValidationLayers = false);
+#endif
     ~Renderer();
 
     std::unique_ptr<Pipeline> CreatePipeline();

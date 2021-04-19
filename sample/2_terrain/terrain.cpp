@@ -86,7 +86,7 @@ int main(int, char**)
   load_shader_file();
 
   // Instantiate the Berkeley Gfx renderer & the backend
-  Renderer r("Sample Project - glTF Viewer", true);
+  Renderer r("Sample Project - glTF Viewer");
 
   Pipeline::InitBackend();
 

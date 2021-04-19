@@ -27,7 +27,7 @@ int main(int, char**)
   spdlog::set_level(spdlog::level::debug);
 
   // Instantiate the Berkeley Gfx renderer & the backend
-  Renderer r("Sample Project - Shader Graph", true);
+  Renderer r("Sample Project - Shader Graph");
 
   Pipeline::InitBackend();
 

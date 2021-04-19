@@ -738,9 +738,6 @@ void BG::Renderer::Run(std::function<void()> init, std::function<void(Context&)>
 
   while (!glfwWindowShouldClose(m_window))
   {
-    // Check for window messages to process.
-    glfwPollEvents();
-
     auto acquireNextImageResult = m_device->acquireNextImageKHR(m_swapchain.get(), UINT64_MAX, m_imageAvailableSemaphores[currentFrame].get(), nullptr);
 
     if (acquireNextImageResult.result != vk::Result::eSuccess)
@@ -761,6 +758,9 @@ void BG::Renderer::Run(std::function<void()> init, std::function<void(Context&)>
     }
 
     m_imagesInFlight[imageIndex] = &m_inFlightFences[currentFrame];
+
+    // Check for window messages to process.
+    glfwPollEvents();
 
     // Trigger GUI thread (GLFW is single threaded, therefore glfw related setup must be on main thread)
     ImGui_ImplGlfw_NewFrame();
@@ -786,13 +786,6 @@ void BG::Renderer::Run(std::function<void()> init, std::function<void(Context&)>
 
     render(ctx);
 
-    // wait for the GUI thread
-    {
-      std::unique_lock<std::mutex> lk(m);
-      cv.wait(lk, [&] { return processed; });
-    }
-    processed = false;
-
     vk::SubmitInfo submitInfo;
 
     std::vector<vk::PipelineStageFlags> waitStages = { vk::PipelineStageFlagBits::eColorAttachmentOutput };
@@ -805,6 +798,13 @@ void BG::Renderer::Run(std::function<void()> init, std::function<void(Context&)>
     submitInfo.setSignalSemaphores(m_renderFinishedSemaphores[ctx.currentFrame].get());
 
     auto result = m_device->resetFences(1, &m_imagesInFlight[imageIndex]->get());
+
+    // wait for the GUI thread
+    {
+      std::unique_lock<std::mutex> lk(m);
+      cv.wait(lk, [&] { return processed; });
+    }
+    processed = false;
 
     result = m_graphcisQueue.submit(1, &submitInfo, m_inFlightFences[ctx.currentFrame].get());
 
