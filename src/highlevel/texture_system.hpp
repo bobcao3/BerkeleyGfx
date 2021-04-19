@@ -14,7 +14,7 @@ namespace BG
     MemoryAllocator& m_allocator;
     Renderer& m_renderer;
 
-    std::vector<std::shared_ptr<Image>> m_images;
+    std::vector<std::unique_ptr<Image>> m_images;
     std::vector<vk::UniqueImageView> m_imageViews;
 
     vk::UniqueSampler m_samplerBilinear;

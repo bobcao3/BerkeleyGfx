@@ -401,10 +401,10 @@ vk::DescriptorSet Pipeline::AllocDescSet(vk::DescriptorPool pool)
 }
 
 
-void BG::Pipeline::BindGraphicsUniformBuffer(Pipeline& p, vk::DescriptorSet descSet, std::shared_ptr<BG::Buffer> buffer, uint32_t offset, uint32_t range, int binding, int arrayElement)
+void BG::Pipeline::BindGraphicsUniformBuffer(Pipeline& p, vk::DescriptorSet descSet, const BG::Buffer& buffer, uint32_t offset, uint32_t range, int binding, int arrayElement)
 {
   vk::DescriptorBufferInfo bufferInfo;
-  bufferInfo.buffer = buffer->buffer;
+  bufferInfo.buffer = buffer.buffer;
   bufferInfo.offset = offset;
   bufferInfo.range = range;
 

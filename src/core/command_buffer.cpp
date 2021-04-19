@@ -38,16 +38,16 @@ void BG::CommandBuffer::DrawIndexed(uint32_t indexCount, uint32_t firstIndex, ui
   m_buf.drawIndexed(indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
 }
 
-void BG::CommandBuffer::BindVertexBuffer(VertexBufferBinding binding, std::shared_ptr<BG::Buffer> buffer, size_t offset)
+void BG::CommandBuffer::BindVertexBuffer(VertexBufferBinding binding, const BG::Buffer& buffer, size_t offset)
 {
-  vk::Buffer vertexBuffers[] = { buffer->buffer };
+  vk::Buffer vertexBuffers[] = { buffer.buffer };
   vk::DeviceSize offsets[] = { offset };
   m_buf.bindVertexBuffers(binding.binding, 1, vertexBuffers, offsets);
 }
 
-void BG::CommandBuffer::BindIndexBuffer(std::shared_ptr<BG::Buffer> buffer, size_t offset, vk::IndexType indexType)
+void BG::CommandBuffer::BindIndexBuffer(const BG::Buffer& buffer, size_t offset, vk::IndexType indexType)
 {
-  m_buf.bindIndexBuffer(buffer->buffer, offset, indexType);
+  m_buf.bindIndexBuffer(buffer.buffer, offset, indexType);
 }
 
 void BG::CommandBuffer::PushConstants(Pipeline& p, vk::ShaderStageFlagBits stage, uint32_t offset, uint32_t size, const void* data)
@@ -105,13 +105,13 @@ vk::AccessFlags getAccessFlags(vk::ImageLayout layout, bool read)
   }
 }
 
-void BG::CommandBuffer::ImageTransition(std::shared_ptr<BG::Image> image, vk::PipelineStageFlags fromStage, vk::PipelineStageFlags toStage, vk::ImageLayout oldLayout, vk::ImageLayout newLayout, int baseMip, int levels, int baseLayer, int layers)
+void BG::CommandBuffer::ImageTransition(const BG::Image& image, vk::PipelineStageFlags fromStage, vk::PipelineStageFlags toStage, vk::ImageLayout oldLayout, vk::ImageLayout newLayout, int baseMip, int levels, int baseLayer, int layers)
 {
   vk::ImageAspectFlags aspect = vk::ImageAspectFlagBits(0);
-  if (image->HasColorPlane()) aspect |= vk::ImageAspectFlagBits::eColor;
-  if (image->HasDepthPlane()) aspect |= vk::ImageAspectFlagBits::eDepth;
+  if (image.HasColorPlane()) aspect |= vk::ImageAspectFlagBits::eColor;
+  if (image.HasDepthPlane()) aspect |= vk::ImageAspectFlagBits::eDepth;
 
-  ImageTransition(image->image, fromStage, toStage, oldLayout, newLayout, aspect, baseMip, levels, baseLayer, layers);
+  ImageTransition(image.image, fromStage, toStage, oldLayout, newLayout, aspect, baseMip, levels, baseLayer, layers);
 }
 
 void BG::CommandBuffer::ImageTransition(vk::Image image, vk::PipelineStageFlags fromStage, vk::PipelineStageFlags toStage, vk::ImageLayout oldLayout, vk::ImageLayout newLayout, vk::ImageAspectFlags aspect, int baseMip, int levels, int baseLayer, int layers)

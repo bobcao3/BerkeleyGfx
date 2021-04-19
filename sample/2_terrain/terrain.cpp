@@ -90,10 +90,11 @@ int main(int, char**)
 
   Pipeline::InitBackend();
 
-  std::shared_ptr<Pipeline> pipeline;
+  std::unique_ptr<Pipeline> pipeline;
 
   // Our GPU buffers holding the vertices and the indices
-  std::shared_ptr<Buffer> vertexBuffer, indexBuffer, uniformBuffer;
+  std::unique_ptr<Buffer> vertexBuffer, indexBuffer;
+  Buffer* uniformBuffer;
 
   BG::VertexBufferBinding vertexBinding;
 
@@ -115,22 +116,22 @@ int main(int, char**)
     // Init
     [&]() {
       // Upload texture to GPU
-      r.getTextureSystem()->AddTexture(heightmapImg, heightmapWidth, heightmapHeight, channels * heightmapHeight * heightmapWidth, vk::Format::eR8G8B8A8Unorm);
+      r.getTextureSystem().AddTexture(heightmapImg, heightmapWidth, heightmapHeight, channels * heightmapHeight * heightmapWidth, vk::Format::eR8G8B8A8Unorm);
 
       // Allocate a vertex buffer on GPU, and upload our buffer
-      vertexBuffer = r.getMemoryAllocator()->AllocCPU2GPU(vertices.size() * sizeof(Vertex), vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst);
+      vertexBuffer = r.getMemoryAllocator().AllocCPU2GPU(vertices.size() * sizeof(Vertex), vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst);
       Vertex* vertexBufferGPU = vertexBuffer->Map<Vertex>();
       std::copy(vertices.begin(), vertices.end(), vertexBufferGPU);
       vertexBuffer->UnMap();
 
       // Allocate a index buffer, and upload our data
-      indexBuffer = r.getMemoryAllocator()->AllocCPU2GPU(indicies.size() * sizeof(uint32_t), vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst);
+      indexBuffer = r.getMemoryAllocator().AllocCPU2GPU(indicies.size() * sizeof(uint32_t), vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst);
       uint32_t* indexBufferGPU = indexBuffer->Map<uint32_t>();
       std::copy(indicies.begin(), indicies.end(), indexBufferGPU);
       indexBuffer->UnMap();
 
       // Allocate a constants buffer
-      //uniformBuffer = r.getMemoryAllocator()->AllocCPU2GPU(sizeof(ShaderUniform) * r.getSwapchainImageViews().size(), vk::BufferUsageFlagBits::eUniformBuffer);
+      //uniformBuffer = r.getMemoryAllocator().AllocCPU2GPU(sizeof(ShaderUniform) * r.getSwapchainImageViews().size(), vk::BufferUsageFlagBits::eUniformBuffer);
 
       // Create a empty pipline
       pipeline = r.CreatePipeline();
@@ -159,15 +160,15 @@ int main(int, char**)
       projMtx[1][1] *= -1.0;
 
       // Map & upload the constants
-      uniformBuffer = r.getMemoryAllocator()->AllocTransient(sizeof(ShaderUniform), vk::BufferUsageFlagBits::eUniformBuffer);
+      uniformBuffer = r.getMemoryAllocator().AllocTransient(sizeof(ShaderUniform), vk::BufferUsageFlagBits::eUniformBuffer);
       ShaderUniform* uniformBufferGPU = uniformBuffer->Map<ShaderUniform>();
       uniformBufferGPU->viewProjMtx = projMtx * viewMtx;
       uniformBuffer->UnMap();
 
       // Allocate descriptor sets & bind uniforms
       auto descSet = pipeline->AllocDescSet(ctx.descPool);
-      pipeline->BindGraphicsUniformBuffer(*pipeline, descSet, uniformBuffer, 0, sizeof(ShaderUniform), 0);
-      pipeline->BindGraphicsImageView(*pipeline, descSet, r.getTextureSystem()->GetImageView({ 0 }), vk::ImageLayout::eShaderReadOnlyOptimal, r.getTextureSystem()->GetSampler(), 1);
+      pipeline->BindGraphicsUniformBuffer(*pipeline, descSet, *uniformBuffer, 0, sizeof(ShaderUniform), 0);
+      pipeline->BindGraphicsImageView(*pipeline, descSet, r.getTextureSystem().GetImageView({ 0 }), vk::ImageLayout::eShaderReadOnlyOptimal, r.getTextureSystem().GetSampler(), 1);
 
       // Begin & resets the command buffer
       ctx.cmdBuffer.Begin();
@@ -177,9 +178,9 @@ int main(int, char**)
         // Bind the pipeline to use
         ctx.cmdBuffer.BindPipeline(*pipeline);
         // Bind the vertex buffer
-        ctx.cmdBuffer.BindVertexBuffer(vertexBinding, vertexBuffer, 0);
+        ctx.cmdBuffer.BindVertexBuffer(vertexBinding, *vertexBuffer, 0);
         // Bind the index buffer
-        ctx.cmdBuffer.BindIndexBuffer(indexBuffer, 0);
+        ctx.cmdBuffer.BindIndexBuffer(*indexBuffer, 0);
         // Bind the descriptor sets (uniform buffer, texture, etc.)
         ctx.cmdBuffer.BindGraphicsDescSets(*pipeline, descSet);
         // Draw terrain

@@ -51,7 +51,7 @@ void BG::MemoryAllocator::NewFrame()
   m_buffers[m_currentFrame].clear();
 }
 
-std::shared_ptr<BG::Buffer> BG::MemoryAllocator::Alloc(size_t size, vk::BufferUsageFlags usage, VmaMemoryUsage memoryUsage)
+std::unique_ptr<BG::Buffer> BG::MemoryAllocator::Alloc(size_t size, vk::BufferUsageFlags usage, VmaMemoryUsage memoryUsage)
 {
   VkBufferCreateInfo bufferInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
   bufferInfo.size = size;
@@ -64,7 +64,7 @@ std::shared_ptr<BG::Buffer> BG::MemoryAllocator::Alloc(size_t size, vk::BufferUs
   VmaAllocation allocation;
   vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, &allocation, nullptr);
 
-  return std::make_shared<BG::Buffer>(allocator, buffer, allocation);
+  return std::make_unique<BG::Buffer>(allocator, buffer, allocation);
 }
 
 BG::Buffer::Buffer(VmaAllocator& allocator, vk::Buffer buffer, VmaAllocation allocation)
@@ -77,7 +77,7 @@ BG::Buffer::~Buffer()
   vmaDestroyBuffer(allocator, buffer, allocation);
 }
 
-std::shared_ptr<BG::Image> BG::MemoryAllocator::AllocImage2D(glm::uvec2 extent, int mipLevels, vk::Format format, vk::ImageUsageFlags usage, vk::ImageLayout layout, VmaMemoryUsage memoryUsage)
+std::unique_ptr<BG::Image> BG::MemoryAllocator::AllocImage2D(glm::uvec2 extent, int mipLevels, vk::Format format, vk::ImageUsageFlags usage, vk::ImageLayout layout, VmaMemoryUsage memoryUsage)
 {
   vk::ImageCreateInfo imageInfo;
   imageInfo.extent.width = extent.x;
@@ -102,10 +102,10 @@ std::shared_ptr<BG::Image> BG::MemoryAllocator::AllocImage2D(glm::uvec2 extent, 
   VmaAllocation allocation;
   vmaCreateImage(allocator, &_imageInfo, &allocInfo, &image, &allocation, nullptr);
 
-  return std::make_shared<BG::Image>(allocator, image, allocation);
+  return std::make_unique<BG::Image>(allocator, image, allocation);
 }
 
-std::shared_ptr<BG::Buffer> BG::MemoryAllocator::AllocTransient(size_t size, vk::BufferUsageFlags usage, VmaMemoryUsage memoryUsage)
+BG::Buffer* BG::MemoryAllocator::AllocTransient(size_t size, vk::BufferUsageFlags usage, VmaMemoryUsage memoryUsage)
 {
   VkBufferCreateInfo bufferInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
   bufferInfo.size = size;
@@ -119,11 +119,13 @@ std::shared_ptr<BG::Buffer> BG::MemoryAllocator::AllocTransient(size_t size, vk:
   VmaAllocation allocation;
   vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, &allocation, nullptr);
 
-  auto ptr = std::make_shared<BG::Buffer>(allocator, buffer, allocation);
+  auto ptr = std::make_unique<BG::Buffer>(allocator, buffer, allocation);
 
-  m_buffers[m_currentFrame].push_back(ptr);
+  Buffer* retVal = ptr.get();
 
-  return ptr;
+  m_buffers[m_currentFrame].push_back(std::move(ptr));
+
+  return retVal;
 }
 
 BG::Image::Image(VmaAllocator& allocator, vk::Image image)

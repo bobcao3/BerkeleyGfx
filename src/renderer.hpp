@@ -59,13 +59,13 @@ namespace BG
     // Images & image views
     std::vector<vk::Image>                  m_swapchainImages;
     std::vector<vk::UniqueImageView>        m_swapchainImageViews;
-    std::vector<std::shared_ptr<BG::Image>> m_depthImages;
+    std::vector<std::unique_ptr<BG::Image>> m_depthImages;
     std::vector<vk::UniqueImageView>        m_depthImageViews;
 
     // Misc components from BG
-    std::shared_ptr<MemoryAllocator> m_memoryAllocator;
-    std::shared_ptr<TextureSystem>   m_textureSystem;
-    std::shared_ptr<Tracker>         m_tracker;
+    std::unique_ptr<MemoryAllocator> m_memoryAllocator;
+    std::unique_ptr<TextureSystem>   m_textureSystem;
+    std::unique_ptr<Tracker>         m_tracker;
 
     struct {
       int graphics = -1, compute = -1, transfer = -1;
@@ -117,15 +117,15 @@ namespace BG
     Renderer(std::string name, bool enableValidationLayers = false);
     ~Renderer();
 
-    std::shared_ptr<Pipeline> CreatePipeline();
+    std::unique_ptr<Pipeline> CreatePipeline();
 
     int getWidth();
     int getHeight();
 
     glm::vec2 getCursorPos();
 
-    inline std::shared_ptr<BG::MemoryAllocator> getMemoryAllocator() { return m_memoryAllocator; };
-    inline std::shared_ptr<BG::TextureSystem> getTextureSystem() { return m_textureSystem; };
+    inline BG::MemoryAllocator& getMemoryAllocator() { return *m_memoryAllocator; };
+    inline BG::TextureSystem& getTextureSystem() { return *m_textureSystem; };
     inline BG::Tracker& getTracker() { return *m_tracker; }
 
     inline std::vector<vk::Image>& getSwapchainImages() { return m_swapchainImages; };

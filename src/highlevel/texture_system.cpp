@@ -12,8 +12,6 @@ TextureSystem::Handle TextureSystem::AddTexture(uint8_t* imageBuffer, int width,
 
   int index = int(m_images.size());
 
-  m_images.push_back(image);
-
   vk::ImageViewCreateInfo viewInfo;
   viewInfo.image = image->image;
   viewInfo.viewType = vk::ImageViewType::e2D;
@@ -23,8 +21,6 @@ TextureSystem::Handle TextureSystem::AddTexture(uint8_t* imageBuffer, int width,
   viewInfo.subresourceRange.levelCount = 1;
   viewInfo.subresourceRange.baseArrayLayer = 0;
   viewInfo.subresourceRange.layerCount = 1;
-
-  m_imageViews.push_back(m_device.createImageViewUnique(viewInfo));
 
   auto stagingBuffer = m_allocator.AllocCPU2GPU(size, vk::BufferUsageFlagBits::eTransferSrc);
   uint8_t* stagingBufferGPU = stagingBuffer->Map<uint8_t>();
@@ -50,10 +46,13 @@ TextureSystem::Handle TextureSystem::AddTexture(uint8_t* imageBuffer, int width,
   CommandBuffer cmdBuf(m_device, _cmdBuf.get(), m_renderer.getTracker());
 
   cmdBuf.Begin();
-  cmdBuf.ImageTransition(image, vk::PipelineStageFlagBits::eBottomOfPipe, vk::PipelineStageFlagBits::eTransfer, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
+  cmdBuf.ImageTransition(*image, vk::PipelineStageFlagBits::eBottomOfPipe, vk::PipelineStageFlagBits::eTransfer, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
   cmdBuf.GetVkCmdBuf().copyBufferToImage(stagingBuffer->buffer, image->image, vk::ImageLayout::eTransferDstOptimal, 1, &copy);
-  cmdBuf.ImageTransition(image, vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eFragmentShader, vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal);
+  cmdBuf.ImageTransition(*image, vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eFragmentShader, vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal);
   cmdBuf.End();
+
+  m_images.push_back(std::move(image));
+  m_imageViews.push_back(m_device.createImageViewUnique(viewInfo));
 
   m_renderer.SubmitCmdBufferNow(cmdBuf.GetVkCmdBuf());
 

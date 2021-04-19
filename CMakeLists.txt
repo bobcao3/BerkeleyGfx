@@ -58,6 +58,9 @@ target_link_libraries(BerkeleyGfx PUBLIC glslang)
 target_link_libraries(BerkeleyGfx PUBLIC SPIRV)
 
 set(BerkeleyGfx_INCLUDE
+  src
+  src/core
+  src/highlevel
   ext/glm
   ${glfw_INCLUDE_DIRS}
   ext/imgui
@@ -67,9 +70,6 @@ set(BerkeleyGfx_INCLUDE
   ext/tinygltf
   ext/SPRIV-Reflect
   ext/
-  src
-  src/core
-  src/highlevel
 )
 
 target_include_directories(BerkeleyGfx PUBLIC ${BerkeleyGfx_INCLUDE})

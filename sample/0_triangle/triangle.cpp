@@ -57,9 +57,9 @@ int main(int, char**)
   Pipeline::InitBackend();
 
   // Our data / objects for rendering
-  std::shared_ptr<Pipeline> pipeline;
+  std::unique_ptr<Pipeline> pipeline;
 
-  std::shared_ptr<Buffer> vertexBuffer;
+  std::unique_ptr<Buffer> vertexBuffer;
 
   BG::VertexBufferBinding vertexBinding;
 
@@ -67,7 +67,7 @@ int main(int, char**)
     // Init
     [&]() {
       // Allocate a buffer on GPU, and flag it as a Vertex Buffer & can be copied towards
-      vertexBuffer = r.getMemoryAllocator()->AllocCPU2GPU(vertices.size() * sizeof(Vertex), vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst);
+      vertexBuffer = r.getMemoryAllocator().AllocCPU2GPU(vertices.size() * sizeof(Vertex), vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst);
       // Map the GPU buffer into the CPU's memory space
       Vertex* vertexBufferGPU = vertexBuffer->Map<Vertex>();
       // Copy our vertex list into GPU buffer
@@ -104,7 +104,7 @@ int main(int, char**)
         // Bind the pipeline to use
         ctx.cmdBuffer.BindPipeline(*pipeline);
         // Bind the vertex buffer
-        ctx.cmdBuffer.BindVertexBuffer(vertexBinding, vertexBuffer, 0);
+        ctx.cmdBuffer.BindVertexBuffer(vertexBinding, *vertexBuffer, 0);
         // Draw 3 vertices from the vertex buffer
         ctx.cmdBuffer.Draw(3);
         });

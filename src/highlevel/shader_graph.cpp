@@ -82,9 +82,7 @@ void BG::ShaderGraph::Graph::CreateTexture(glm::uvec2 extent, vk::Format format,
 
   for (int i = 0; i < r.getSwapchainImages().size(); i++)
   {
-    auto image = r.getMemoryAllocator()->AllocImage2D(extent, 1, format, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::ImageLayout::eUndefined);
-
-    texture->image.push_back(image);
+    auto image = r.getMemoryAllocator().AllocImage2D(extent, 1, format, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::ImageLayout::eUndefined);
 
     vk::ImageViewCreateInfo viewInfo;
     viewInfo.image = image->image;
@@ -96,6 +94,7 @@ void BG::ShaderGraph::Graph::CreateTexture(glm::uvec2 extent, vk::Format format,
     viewInfo.subresourceRange.baseArrayLayer = 0;
     viewInfo.subresourceRange.layerCount = 1;
 
+    texture->image.push_back(std::move(image));
     texture->imageView.push_back(r.getDevice().createImageView(viewInfo));
     texture->extent = extent;
     texture->format = format;
@@ -142,7 +141,7 @@ Graph::Graph(std::string jsonFile, Renderer& r)
       int imageWidth, imageHeight, channels;
       uint8_t* imgData = stbi_load(pathString.data(), &imageWidth, &imageHeight, &channels, 0);
 
-      auto handle = r.getTextureSystem()->AddTexture(imgData, imageWidth, imageHeight, imageWidth * imageHeight * channels, vk::Format::eR8G8B8A8Srgb);
+      auto handle = r.getTextureSystem().AddTexture(imgData, imageWidth, imageHeight, imageWidth * imageHeight * channels, vk::Format::eR8G8B8A8Srgb);
 
       auto texture = std::make_shared<Texture>();
       texture->format = vk::Format::eR8G8B8A8Srgb;
@@ -151,7 +150,7 @@ Graph::Graph(std::string jsonFile, Renderer& r)
 
       for (int i = 0; i < r.getSwapchainImages().size(); i++)
       {
-        texture->imageView.push_back(r.getTextureSystem()->GetImageView(handle));
+        texture->imageView.push_back(r.getTextureSystem().GetImageView(handle));
       }
 
       textures[name] = texture;
@@ -247,18 +246,18 @@ Graph::Graph(std::string jsonFile, Renderer& r)
       spdlog::debug("Parameter type {}", type);
       if (type == "float")
       {
-        auto param = std::make_shared<FloatParameter>();
+        auto param = std::make_unique<FloatParameter>();
         jsonParam.at("name").get_to(param->name);
         jsonParam.at("min").get_to(param->min);
         jsonParam.at("max").get_to(param->max);
         jsonParam.at("default").get_to(param->defaultValue);
         param->value = param->defaultValue;
 
-        stage->parameters.push_back(param);
+        stage->parameters.push_back(std::move(param));
       }
       else if (type == "vec3")
       {
-        auto param = std::make_shared<Vec3Parameter>();
+        auto param = std::make_unique<Vec3Parameter>();
         jsonParam.at("name").get_to(param->name);
 
         jsonParam.at("min")[0].get_to(param->min.x);
@@ -275,7 +274,7 @@ Graph::Graph(std::string jsonFile, Renderer& r)
 
         param->value = param->defaultValue;
 
-        stage->parameters.push_back(param);
+        stage->parameters.push_back(std::move(param));
       }
     }
 
@@ -395,13 +394,13 @@ void Graph::Render(Renderer& r, Renderer::Context& ctx, std::string target)
   }
 
   // Render current node
-  auto pipeline = stage->pipeline;
+  auto& pipeline = stage->pipeline;
 
   // Allocate descriptor sets & bind uniforms
   auto descSet = pipeline->AllocDescSet(ctx.descPool);
 
   if (stage->builtinParamBindPoint >= 0)
-    pipeline->BindGraphicsUniformBuffer(*pipeline, descSet, uniformBuffer, 0, uint32_t(sizeof(ShaderUniform)), stage->builtinParamBindPoint);
+    pipeline->BindGraphicsUniformBuffer(*pipeline, descSet, *uniformBuffer, 0, uint32_t(sizeof(ShaderUniform)), stage->builtinParamBindPoint);
 
   for (auto& textureBinding : stage->texture)
   {
@@ -415,13 +414,13 @@ void Graph::Render(Renderer& r, Renderer::Context& ctx, std::string target)
       imageIndex = (imageIndex - 1 + size) % size;
     }
 
-    if (this->textures[textureName]->isInternal)
-      ctx.cmdBuffer.ImageTransition(this->textures[textureName]->image[imageIndex], vk::PipelineStageFlagBits::eBottomOfPipe, vk::PipelineStageFlagBits::eFragmentShader, vk::ImageLayout::eUndefined, vk::ImageLayout::eShaderReadOnlyOptimal);
+    if (textures[textureName]->isInternal)
+      ctx.cmdBuffer.ImageTransition(*textures[textureName]->image[imageIndex], vk::PipelineStageFlagBits::eBottomOfPipe, vk::PipelineStageFlagBits::eFragmentShader, vk::ImageLayout::eUndefined, vk::ImageLayout::eShaderReadOnlyOptimal);
 
     pipeline->BindGraphicsImageView(
       *pipeline, descSet,
-      this->textures[textureName]->imageView[imageIndex],
-      vk::ImageLayout::eShaderReadOnlyOptimal, r.getTextureSystem()->GetSampler(),
+      textures[textureName]->imageView[imageIndex],
+      vk::ImageLayout::eShaderReadOnlyOptimal, r.getTextureSystem().GetSampler(),
       textureBinding.binding);
   }
 
@@ -431,7 +430,7 @@ void Graph::Render(Renderer& r, Renderer::Context& ctx, std::string target)
     // Bind the descriptor sets (uniform buffer, texture, etc.)
     ctx.cmdBuffer.BindGraphicsDescSets(*pipeline, descSet);
     // Push parameters as push constants
-    for (auto p : stage->parameters)
+    for (auto& p : stage->parameters)
     {
       p->PushParameter(ctx.cmdBuffer, *pipeline);
     }
@@ -441,14 +440,14 @@ void Graph::Render(Renderer& r, Renderer::Context& ctx, std::string target)
 
   if (target != "framebuffer")
   {
-    ctx.cmdBuffer.ImageTransition(texture->image[ctx.imageIndex], vk::PipelineStageFlagBits::eBottomOfPipe, vk::PipelineStageFlagBits::eFragmentShader, vk::ImageLayout::eShaderReadOnlyOptimal, vk::ImageLayout::eShaderReadOnlyOptimal);
+    ctx.cmdBuffer.ImageTransition(*texture->image[ctx.imageIndex], vk::PipelineStageFlagBits::eBottomOfPipe, vk::PipelineStageFlagBits::eFragmentShader, vk::ImageLayout::eShaderReadOnlyOptimal, vk::ImageLayout::eShaderReadOnlyOptimal);
   }
 }
 
 void Graph::Render(Renderer& r, Renderer::Context& ctx)
 {
   // Map & upload the constants
-  uniformBuffer = r.getMemoryAllocator()->AllocTransient(sizeof(ShaderUniform), vk::BufferUsageFlagBits::eUniformBuffer);
+  uniformBuffer = r.getMemoryAllocator().AllocTransient(sizeof(ShaderUniform), vk::BufferUsageFlagBits::eUniformBuffer);
   auto now = std::chrono::steady_clock::now();
   ShaderUniform* uniformBufferGPU = uniformBuffer->Map<ShaderUniform>();
   uniformBufferGPU->iResolution = glm::vec3(r.getWidth(), r.getHeight(), 1.0f);
@@ -476,7 +475,7 @@ void Graph::RenderGUI()
     {
       ImGui::Text("Shader File: %s", stage->shaderFile.data());
 
-      for (auto param : stage->parameters)
+      for (auto& param : stage->parameters)
       {
         param->RenderGUI();
       }

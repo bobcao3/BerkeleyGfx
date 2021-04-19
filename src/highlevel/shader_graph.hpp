@@ -57,7 +57,7 @@ namespace BG::ShaderGraph
     glm::uvec2 extent;
     vk::Format format;
 
-    std::vector<std::shared_ptr<BG::Image>> image;
+    std::vector<std::unique_ptr<BG::Image>> image;
     std::vector<vk::ImageView> imageView;
 
     bool isInternal = true;
@@ -73,14 +73,14 @@ namespace BG::ShaderGraph
   {
     std::string name;
     std::string shaderFile;
-    std::vector<std::shared_ptr<Parameter>> parameters;
+    std::vector<std::unique_ptr<Parameter>> parameters;
 
     int builtinParamBindPoint;
 
-    std::shared_ptr<Texture> output;
+    std::weak_ptr<Texture> output;
     std::vector<TextureBinding> texture;
 
-    std::shared_ptr<BG::Pipeline> pipeline;
+    std::unique_ptr<BG::Pipeline> pipeline;
   };
 
   class Graph
@@ -94,7 +94,7 @@ namespace BG::ShaderGraph
 
     std::string outputStage;
 
-    std::shared_ptr<BG::Buffer> uniformBuffer;
+    BG::Buffer* uniformBuffer;
 
     std::chrono::steady_clock::time_point startTime, lastTime;
     uint32_t frameCount = 0;

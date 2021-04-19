@@ -221,7 +221,7 @@ void load_gltf_model(Renderer& r)
   {
     spdlog::info("Size {}, width {}, height {}, bit depth {}, {}", img.image.size(), img.width, img.height, img.bits, img.image.size() / img.width / img.height);
 
-    r.getTextureSystem()->AddTexture(img.image.data(), img.width, img.height, img.image.size(), vk::Format::eR8G8B8A8Srgb);
+    r.getTextureSystem().AddTexture(img.image.data(), img.width, img.height, img.image.size(), vk::Format::eR8G8B8A8Srgb);
   }
 
   spdlog::info("======== glTF load finished ========");
@@ -238,10 +238,11 @@ int main(int, char**)
 
   Pipeline::InitBackend();
 
-  std::shared_ptr<Pipeline> pipeline;
+  std::unique_ptr<Pipeline> pipeline;
 
   // Our GPU buffers holding the vertices and the indices
-  std::shared_ptr<Buffer> vertexBuffer, indexBuffer, uniformBuffer;
+  std::shared_ptr<Buffer> vertexBuffer, indexBuffer;
+  Buffer* uniformBuffer;
 
   BG::VertexBufferBinding vertexBinding;
 
@@ -257,7 +258,7 @@ int main(int, char**)
       load_gltf_model(r);
 
       // Allocate a buffer on GPU, and flag it as a Vertex Buffer & can be copied towards
-      vertexBuffer = r.getMemoryAllocator()->AllocCPU2GPU(vertices.size() * sizeof(Vertex), vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst);
+      vertexBuffer = r.getMemoryAllocator().AllocCPU2GPU(vertices.size() * sizeof(Vertex), vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst);
       // Map the GPU buffer into the CPU's memory space
       Vertex* vertexBufferGPU = vertexBuffer->Map<Vertex>();
       // Copy our vertex list into GPU buffer
@@ -266,7 +267,7 @@ int main(int, char**)
       vertexBuffer->UnMap();
 
       // Allocate a buffer on GPU, and flag it as a Index Buffer & can be copied towards
-      indexBuffer = r.getMemoryAllocator()->AllocCPU2GPU(indicies.size() * sizeof(uint32_t), vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst);
+      indexBuffer = r.getMemoryAllocator().AllocCPU2GPU(indicies.size() * sizeof(uint32_t), vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst);
       // Map the GPU buffer into the CPU's memory space
       uint32_t* indexBufferGPU = indexBuffer->Map<uint32_t>();
       // Copy our vertex list into GPU buffer
@@ -274,7 +275,7 @@ int main(int, char**)
       // Unmap the GPU buffer
       indexBuffer->UnMap();
 
-      // uniformBuffer = r.getMemoryAllocator()->AllocCPU2GPU(sizeof(ShaderUniform) * r.getSwapchainImageViews().size(), vk::BufferUsageFlagBits::eUniformBuffer);
+      // uniformBuffer = r.getMemoryAllocator().AllocCPU2GPU(sizeof(ShaderUniform) * r.getSwapchainImageViews().size(), vk::BufferUsageFlagBits::eUniformBuffer);
 
       // Create a empty pipline
       pipeline = r.CreatePipeline();
@@ -305,7 +306,7 @@ int main(int, char**)
       projMtx[1][1] *= -1.0;
 
       // Map & upload the constants
-      uniformBuffer = r.getMemoryAllocator()->AllocTransient(sizeof(ShaderUniform) * r.getSwapchainImageViews().size(), vk::BufferUsageFlagBits::eUniformBuffer);
+      uniformBuffer = r.getMemoryAllocator().AllocTransient(sizeof(ShaderUniform) * r.getSwapchainImageViews().size(), vk::BufferUsageFlagBits::eUniformBuffer);
       ShaderUniform* uniformBufferGPU = uniformBuffer->Map<ShaderUniform>();
       uniformBufferGPU->viewProjMtx = projMtx * viewMtx;
       uniformBuffer->UnMap();
@@ -314,8 +315,8 @@ int main(int, char**)
 
       // Allocate descriptor sets & bind uniforms
       auto descSet = pipeline->AllocDescSet(ctx.descPool);
-      pipeline->BindGraphicsUniformBuffer(*pipeline, descSet, uniformBuffer, 0, sizeof(ShaderUniform), 0);
-      pipeline->BindGraphicsImageView(*pipeline, descSet, r.getTextureSystem()->GetImageView({ 0 }), vk::ImageLayout::eShaderReadOnlyOptimal, r.getTextureSystem()->GetSampler(), 1);
+      pipeline->BindGraphicsUniformBuffer(*pipeline, descSet, *uniformBuffer, 0, sizeof(ShaderUniform), 0);
+      pipeline->BindGraphicsImageView(*pipeline, descSet, r.getTextureSystem().GetImageView({ 0 }), vk::ImageLayout::eShaderReadOnlyOptimal, r.getTextureSystem().GetSampler(), 1);
 
       // Begin & resets the command buffer
       ctx.cmdBuffer.Begin();
@@ -325,9 +326,9 @@ int main(int, char**)
         // Bind the pipeline to use
         ctx.cmdBuffer.BindPipeline(*pipeline);
         // Bind the vertex buffer
-        ctx.cmdBuffer.BindVertexBuffer(vertexBinding, vertexBuffer, 0);
+        ctx.cmdBuffer.BindVertexBuffer(vertexBinding, *vertexBuffer, 0);
         // Bind the index buffer
-        ctx.cmdBuffer.BindIndexBuffer(indexBuffer, 0);
+        ctx.cmdBuffer.BindIndexBuffer(*indexBuffer, 0);
         // Bind the descriptor sets (uniform buffer, texture, etc.)
         ctx.cmdBuffer.BindGraphicsDescSets(*pipeline, descSet);
         // Draw objects

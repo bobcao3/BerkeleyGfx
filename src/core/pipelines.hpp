@@ -84,7 +84,7 @@ namespace BG
 
     vk::DescriptorSet AllocDescSet(vk::DescriptorPool pool);
 
-    void BindGraphicsUniformBuffer(Pipeline& p, vk::DescriptorSet descSet, std::shared_ptr<BG::Buffer> buffer, uint32_t offset, uint32_t range, int binding, int arrayElement = 0);
+    void BindGraphicsUniformBuffer(Pipeline& p, vk::DescriptorSet descSet, const BG::Buffer& buffer, uint32_t offset, uint32_t range, int binding, int arrayElement = 0);
     void BindGraphicsImageView(Pipeline& p, vk::DescriptorSet descSet, vk::ImageView view, vk::ImageLayout layout, vk::Sampler sampler, int binding, int arrayElement = 0);
 
     vk::RenderPass GetRenderPass();

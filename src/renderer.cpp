@@ -403,7 +403,7 @@ void BG::Renderer::CreateDevice()
     throw std::runtime_error("No presentation support on the graphcis queue");
   }
 
-  m_memoryAllocator = std::make_shared<BG::MemoryAllocator>(m_physicalDevice, m_device.get(), m_instance.get(), MAX_FRAMES_IN_FLIGHT);
+  m_memoryAllocator = std::make_unique<BG::MemoryAllocator>(m_physicalDevice, m_device.get(), m_instance.get(), MAX_FRAMES_IN_FLIGHT);
 }
 
 void BG::Renderer::CreateSurface()
@@ -503,7 +503,6 @@ void BG::Renderer::CreateSwapChain()
   for (int i = 0; i < m_swapchainImages.size(); i++)
   {
     auto image = m_memoryAllocator->AllocImage2D(glm::uvec2(m_width, m_height), 1, vk::Format::eD32Sfloat, vk::ImageUsageFlagBits::eDepthStencilAttachment);
-    m_depthImages.push_back(image);
 
     vk::ImageViewCreateInfo viewInfo;
     viewInfo.image = image->image;
@@ -515,6 +514,7 @@ void BG::Renderer::CreateSwapChain()
     viewInfo.subresourceRange.baseArrayLayer = 0;
     viewInfo.subresourceRange.layerCount = 1;
 
+    m_depthImages.push_back(std::move(image));
     m_depthImageViews.push_back(m_device->createImageViewUnique(viewInfo));
   }
 }
@@ -636,13 +636,13 @@ void BG::Renderer::DestroyImGuiSwapChain()
 }
 
 BG::Renderer::Renderer(std::string name, bool enableValidationLayers)
-  : m_name(name), m_enableValidationLayers(enableValidationLayers), m_tracker(std::make_shared<BG::Tracker>(MAX_FRAMES_IN_FLIGHT))
+  : m_name(name), m_enableValidationLayers(enableValidationLayers), m_tracker(std::make_unique<BG::Tracker>(MAX_FRAMES_IN_FLIGHT))
 {
   InitWindow();
   InitVulkan();
   InitImGui();
 
-  m_textureSystem = std::make_shared<TextureSystem>(m_device.get(), *m_memoryAllocator, *this);
+  m_textureSystem = std::make_unique<TextureSystem>(m_device.get(), *m_memoryAllocator, *this);
 }
 
 BG::Renderer::~Renderer()
@@ -843,9 +843,9 @@ void BG::Renderer::Run(std::function<void()> init, std::function<void(Context&)>
   cleanup();
 }
 
-std::shared_ptr<Pipeline> BG::Renderer::CreatePipeline()
+std::unique_ptr<Pipeline> BG::Renderer::CreatePipeline()
 {
-  return std::make_shared<Pipeline>(m_device.get());
+  return std::make_unique<Pipeline>(m_device.get());
 }
 
 int Renderer::getWidth()
