@@ -23,6 +23,7 @@ set(BerkeleyGfx_SRC
   src/core/static_callbacks.cpp
 
   src/highlevel/texture_system.cpp
+  src/highlevel/mesh_system.cpp
   src/highlevel/shader_graph.cpp
 
   src/renderer.cpp

@@ -16,14 +16,22 @@ namespace BG
   class CommandBuffer;
   class Image;
   class MemoryAllocator;
-  class MeshSystem;
   class Pipeline;
   class Renderer;
   class TextureSystem;
   class Tracker;
   class BBox;
 
+  namespace MeshSystem
+  {
+    struct Vertex;
+    class Node;
+    class Loader;
+  }
+
   struct VertexBufferBinding {
     int binding;
   };
+
+  uint64_t GetUID();
 }

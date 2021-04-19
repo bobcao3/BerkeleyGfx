@@ -11,6 +11,8 @@
 
 #include <GLFW/glfw3native.h>
 
+#include <atomic>
+
 using namespace BG;
 
 VKAPI_ATTR VkBool32 VKAPI_CALL STATIC_DebugCallback(
@@ -24,4 +26,11 @@ VKAPI_ATTR VkBool32 VKAPI_CALL STATIC_DebugCallback(
   // throw std::runtime_error("Vulkan Validation Error");
 
   return VK_FALSE;
+}
+
+static std::atomic<uint64_t> __UidCounter(0);
+
+uint64_t BG::GetUID()
+{
+  return __UidCounter.fetch_add(1);
 }

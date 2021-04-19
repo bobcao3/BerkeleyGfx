@@ -4,6 +4,7 @@
 #include "command_buffer.hpp"
 #include "buffer.hpp"
 #include "texture_system.hpp"
+#include "mesh_system.hpp"
 
 #include <string>
 #include <fstream>
@@ -13,29 +14,11 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
-// Import the tinyGlTF library to load glTF models
-#define TINYGLTF_IMPLEMENTATION
-#define STB_IMAGE_IMPLEMENTATION
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#define TINYGLTF_USE_CPP14
-#include "tiny_gltf.h"
-
 using namespace BG;
 
 // String for storing the shaders
 std::string vertexShader;
 std::string fragmentShader;
-
-// Our vertex format
-struct Vertex {
-  glm::vec3 pos;
-  glm::vec3 color;
-  glm::vec2 uv;
-};
-
-// Our CPU side index / vertex buffer
-std::vector<Vertex> vertices;
-std::vector<uint32_t> indicies;
 
 // Each draw cmd draws a child node of the glTF
 // Which uses a subsection of the index buffer (firstIndex + indexCount)
@@ -43,11 +26,9 @@ std::vector<uint32_t> indicies;
 // (e.g. index N means the vertexOffset + Nth element of the vertex buffer)
 struct DrawCmd
 {
-  uint32_t indexCount;
-  uint32_t firstIndex;
-  uint32_t vertexOffset;
-  glm::mat4 transform;
-  int materialId;
+  uint32_t indexCount = 0;
+  uint32_t firstIndex = 0;
+  uint32_t vertexOffset = 0;
 };
 
 struct ShaderUniform
@@ -57,9 +38,6 @@ struct ShaderUniform
 
 glm::mat4 viewMtx;
 glm::mat4 projMtx;
-
-// List of draw commands
-std::vector<DrawCmd> drawObjects;
 
 // Read the shaders into string from file
 void load_shader_file()
@@ -71,165 +49,11 @@ void load_shader_file()
   vertexShader = std::string((std::istreambuf_iterator<char>(tv)), std::istreambuf_iterator<char>());
 }
 
-// Documents for the glTF format:
-// https://raw.githubusercontent.com/KhronosGroup/glTF/master/specification/2.0/figures/gltfOverview-2.0.0b.png
-// Here for sake of simplicity we just flatten the entire scene hierarchy to a vertex buffer, a index buffer, and a series of offsets
-void load_gltf_node(tinygltf::Model& model, int nodeId, glm::mat4 transform)
-{
-  auto& node = model.nodes[nodeId];
-
-  // Hierarchical transform
-  glm::mat4 localTransform;
-  
-  localTransform = node.matrix.size() == 16 ? glm::mat4(
-    node.matrix[     0], node.matrix[     1], node.matrix[     2], node.matrix[     3], 
-    node.matrix[ 4 + 0], node.matrix[ 4 + 1], node.matrix[ 4 + 2], node.matrix[ 4 + 3],
-    node.matrix[ 8 + 0], node.matrix[ 8 + 1], node.matrix[ 8 + 2], node.matrix[ 8 + 3],
-    node.matrix[12 + 0], node.matrix[12 + 1], node.matrix[12 + 2], node.matrix[12 + 3]
-  ) : glm::mat4(1.0);
-
-  localTransform = localTransform * transform;
-
-  // The node contains a mesh
-  if (node.mesh >= 0)
-  {
-    auto& mesh = model.meshes[node.mesh];
-
-    spdlog::info("======== NODE {} ========", nodeId);
-
-    // Iterate through all primitives of the mesh
-    for (auto& primitive : mesh.primitives)
-    {
-      // Get the vertex position accessor (and relavent buffers)
-      auto& positionAccessor = model.accessors[primitive.attributes["POSITION"]];
-      spdlog::info("{}x{}, offset = {}", positionAccessor.count, positionAccessor.ByteStride(model.bufferViews[positionAccessor.bufferView]), positionAccessor.byteOffset);
-      
-      auto& positionBufferView = model.bufferViews[positionAccessor.bufferView];
-      auto& positionBuffer = model.buffers[positionBufferView.buffer];
-
-      size_t positionBufferStride = positionAccessor.ByteStride(model.bufferViews[positionAccessor.bufferView]);
-
-      // Get the index accessor (and relavent buffers)
-      auto& indexAccessor = model.accessors[primitive.indices];
-      spdlog::info("{}x{}, offset = {}", indexAccessor.count, indexAccessor.ByteStride(model.bufferViews[indexAccessor.bufferView]), indexAccessor.byteOffset);
-
-      auto& indexBufferView = model.bufferViews[indexAccessor.bufferView];
-      auto& indexBuffer = model.buffers[indexBufferView.buffer];
-
-      size_t indexBufferStride = indexAccessor.ByteStride(model.bufferViews[indexAccessor.bufferView]);
-
-      // Get the texture UV accessor (and relavent buffers)
-      auto& uvAccessor = model.accessors[primitive.attributes["TEXCOORD_0"]];
-      spdlog::info("{}x{}, offset = {}", uvAccessor.count, uvAccessor.ByteStride(model.bufferViews[uvAccessor.bufferView]), uvAccessor.byteOffset);
-
-      auto& uvBufferView = model.bufferViews[uvAccessor.bufferView];
-      auto& uvBuffer = model.buffers[uvBufferView.buffer];
-
-      size_t uvBufferStride = uvAccessor.ByteStride(model.bufferViews[uvAccessor.bufferView]);
-
-      // Record the current size of our vertex buffer and index buffer
-      // We will be pushing new data into these two vectors
-      // The current size will be the starting offset of this draw command
-      size_t startVertex = vertices.size();
-      size_t startIndex = indicies.size();
-
-      // Push all vertices
-      for (size_t index = 0; index < positionAccessor.count; index++)
-      {
-        // Get the base address and store the vertex
-        float* elementBase = (float*)((uint8_t*)(positionBuffer.data.data()) + positionBufferView.byteOffset + positionAccessor.byteOffset + positionBufferStride * index);
-        float* uvElementBase = (float*)((uint8_t*)(uvBuffer.data.data()) + uvBufferView.byteOffset + uvAccessor.byteOffset + uvBufferStride * index);
-        Vertex v;
-        v.pos = glm::vec3(elementBase[0], elementBase[1], elementBase[2]);
-        v.color = glm::vec3(0.7f);
-        v.uv = glm::vec2(uvElementBase[0], uvElementBase[1]);
-        vertices.push_back(v);
-      }
-
-      // Push all indices
-      for (size_t index = 0; index < indexAccessor.count; index++)
-      {
-        uint16_t* elementBase = (uint16_t*)((uint8_t*)(indexBuffer.data.data()) + indexBufferView.byteOffset + indexAccessor.byteOffset + indexBufferStride * index);
-        indicies.push_back(uint32_t(elementBase[0]));
-      }
-
-      // Append a new draw command to the list
-      drawObjects.push_back({
-        uint32_t(indexAccessor.count),
-        uint32_t(startIndex),
-        uint32_t(startVertex),
-        localTransform
-        });
-    }
-  }
-
-  // Recursively go through all child nodes
-  for (int childNodeId : node.children)
-  {
-    load_gltf_node(model, childNodeId, localTransform);
-  }
-}
-
-// The function that loads the glTF file and initiate the recursive call to flatten the hierarchy
-void load_gltf_model(Renderer& r)
-{
-  std::string model_file = SRC_DIR"/assets/glTF-Sample-Models/2.0/WaterBottle/glTF/WaterBottle.gltf";
-
-  tinygltf::Model model;
-  tinygltf::TinyGLTF loader;
-  std::string err;
-  std::string warn;
-
-  // Here we are loadinga *.gltf file which is an ASCII json.
-  // If we want to load *.glb (binary package), we should use the LoadBinaryFromFile function
-  bool ret = loader.LoadASCIIFromFile(&model, &err, &warn, model_file);
-
-  // Check whether the library successfully loaded the glTF model
-  if (!warn.empty()) {
-    spdlog::warn("Warn: %s\n", warn.c_str());
-  }
-
-  if (!err.empty()) {
-    spdlog::error("Err: %s\n", err.c_str());
-    throw std::runtime_error("glTF parsing error");
-  }
-
-  if (!ret) {
-    spdlog::error("Failed to parse glTF");
-    throw std::runtime_error("Fail to parse glTF");
-  }
-
-  // Get the default scene
-  auto& scene = model.scenes[model.defaultScene];
-
-  glm::mat4 transform = glm::mat4(1.0);
-
-  // Initiate recursive call on the root nodes
-  for (int sceneRootNodeId : scene.nodes)
-  {
-    load_gltf_node(model, sceneRootNodeId, transform);
-  }
-
-  /*
-  for (auto& m : model.materials)
-  {
-    
-  }
-  */
-
-  for (auto& img : model.images)
-  {
-    spdlog::info("Size {}, width {}, height {}, bit depth {}, {}", img.image.size(), img.width, img.height, img.bits, img.image.size() / img.width / img.height);
-
-    r.getTextureSystem().AddTexture(img.image.data(), img.width, img.height, img.image.size(), vk::Format::eR8G8B8A8Srgb);
-  }
-
-  spdlog::info("======== glTF load finished ========");
-}
-
 // Main function
 int main(int, char**)
 {
+  spdlog::set_level(spdlog::level::debug);
+
   // Load the shader file into string
   load_shader_file();
 
@@ -251,40 +75,91 @@ int main(int, char**)
   float cameraOrbitRadius = 1.0;
   float cameraOrbitHeight = 0.0;
 
+  float globalScale = 1.0;
+  bool yUp = true;
+  glm::mat4 globalTransform = glm::scale(yUp ? glm::mat4(1.0) : glm::mat4(
+    glm::vec4(1.0, 0.0, 0.0, 0.0),
+    glm::vec4(0.0, 0.0, 1.0, 0.0),
+    glm::vec4(0.0, 1.0, 0.0, 0.0),
+    glm::vec4(0.0, 0.0, 0.0, 1.0)
+  ), glm::vec3(globalScale));
+
+  std::vector<MeshSystem::Node> nodes;
+  MeshSystem::Node* rootNode;
+
+  std::unordered_map<const MeshSystem::Node*, DrawCmd> drawObjects;
+
   r.Run(
     // Init
     [&]() {
-      // Load the glTF models into vertex and index buffer
-      load_gltf_model(r);
+      // Load model
+      auto pair = MeshSystem::Loader::FromGltf(r, SRC_DIR"/assets/glTF-Sample-Models/2.0/MaterialsVariantsShoe/glTF/MaterialsVariantsShoe.gltf");
+      nodes = std::move(pair.first);
+      rootNode = pair.second;
 
-      // Allocate a buffer on GPU, and flag it as a Vertex Buffer & can be copied towards
-      vertexBuffer = r.getMemoryAllocator().AllocCPU2GPU(vertices.size() * sizeof(Vertex), vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst);
-      // Map the GPU buffer into the CPU's memory space
-      Vertex* vertexBufferGPU = vertexBuffer->Map<Vertex>();
-      // Copy our vertex list into GPU buffer
-      std::copy(vertices.begin(), vertices.end(), vertexBufferGPU);
-      // Unmap the GPU buffer
-      vertexBuffer->UnMap();
+      uint32_t numVertices = 0;
+      uint32_t numIndices = 0;
 
-      // Allocate a buffer on GPU, and flag it as a Index Buffer & can be copied towards
-      indexBuffer = r.getMemoryAllocator().AllocCPU2GPU(indicies.size() * sizeof(uint32_t), vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst);
-      // Map the GPU buffer into the CPU's memory space
+      for (auto& n : nodes)
+      {
+        numVertices += n.GetVertices().size();
+        numIndices += n.GetIndices().size();
+      }
+
+      // Allocate buffers on GPU, and flag it as a Vertex Buffer / Index buffer
+      vertexBuffer = r.getMemoryAllocator().AllocCPU2GPU(numVertices * sizeof(MeshSystem::Vertex), vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst);
+      indexBuffer = r.getMemoryAllocator().AllocCPU2GPU(numIndices * sizeof(uint32_t), vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst);
+      // Map the GPU buffers into the CPU's memory space
+      MeshSystem::Vertex* vertexBufferGPU = vertexBuffer->Map<MeshSystem::Vertex>();
       uint32_t* indexBufferGPU = indexBuffer->Map<uint32_t>();
       // Copy our vertex list into GPU buffer
-      std::copy(indicies.begin(), indicies.end(), indexBufferGPU);
-      // Unmap the GPU buffer
+      uint32_t currentVertex = 0;
+      uint32_t currentIndex = 0;
+      for (auto& n : nodes)
+      {
+        if (n.HasMesh())
+        {
+          DrawCmd obj = { n.GetIndices().size(), currentIndex, currentVertex };
+
+          drawObjects[&n] = obj;
+
+          std::copy(n.GetIndices().cbegin(), n.GetIndices().cend(), &indexBufferGPU[currentIndex]);
+          std::copy(n.GetVertices().cbegin(), n.GetVertices().cend(), &vertexBufferGPU[currentVertex]);
+
+          currentIndex += n.GetIndices().size();
+          currentVertex += n.GetVertices().size();
+        }
+      }
+      // Unmap the GPU buffers
+      vertexBuffer->UnMap();
       indexBuffer->UnMap();
 
-      // uniformBuffer = r.getMemoryAllocator().AllocCPU2GPU(sizeof(ShaderUniform) * r.getSwapchainImageViews().size(), vk::BufferUsageFlagBits::eUniformBuffer);
+      // Compute a centroid to place our camera
+      glm::vec3 min = glm::vec3(INFINITY), max = glm::vec3(-INFINITY);
+      rootNode->ForEach(globalTransform, [&](const MeshSystem::Node& n, glm::mat4 transform) {
+        if (n.HasMesh())
+        {
+          glm::vec3 lmin = glm::vec3(INFINITY), lmax = glm::vec3(-INFINITY);
+          for (const auto& v : n.GetVertices())
+          {
+            lmin = glm::min(lmin, v.pos);
+            lmax = glm::max(lmax, v.pos);
+          }
+          min = glm::min(min, glm::vec3(transform * glm::vec4(lmin, 1.0f)));
+          max = glm::max(max, glm::vec3(transform * glm::vec4(lmax, 1.0f)));
+        }
+        });
+      cameraLookAt = (max + min) * 0.5f;
 
       // Create a empty pipline
       pipeline = r.CreatePipeline();
       // Add a vertex binding
-      vertexBinding = pipeline->AddVertexBuffer<Vertex>();
+      vertexBinding = pipeline->AddVertexBuffer<MeshSystem::Vertex>();
       // Specify two vertex input attributes from the binding
-      pipeline->AddAttribute(vertexBinding, 0, vk::Format::eR32G32B32Sfloat, offsetof(Vertex, pos));
-      pipeline->AddAttribute(vertexBinding, 1, vk::Format::eR32G32B32Sfloat, offsetof(Vertex, color));
-      pipeline->AddAttribute(vertexBinding, 2, vk::Format::eR32G32Sfloat, offsetof(Vertex, uv));
+      pipeline->AddAttribute(vertexBinding, 0, vk::Format::eR32G32B32Sfloat, offsetof(MeshSystem::Vertex, pos));
+      pipeline->AddAttribute(vertexBinding, 1, vk::Format::eR32G32B32Sfloat, offsetof(MeshSystem::Vertex, normal));
+      pipeline->AddAttribute(vertexBinding, 2, vk::Format::eR32G32Sfloat, offsetof(MeshSystem::Vertex, uv0));
+      pipeline->AddAttribute(vertexBinding, 3, vk::Format::eR32Sint, offsetof(MeshSystem::Vertex, materialIndex));
       // Add shaders
       pipeline->AddFragmentShaders(fragmentShader);
       pipeline->AddVertexShaders(vertexShader);
@@ -300,9 +175,16 @@ int main(int, char**)
     [&](Renderer::Context& ctx) {
       int width = r.getWidth(), height = r.getHeight();
 
+      glm::mat4 globalTransform = glm::scale(yUp ? glm::mat4(1.0) : glm::mat4(
+        glm::vec4(1.0, 0.0, 0.0, 0.0),
+        glm::vec4(0.0, 0.0, 1.0, 0.0),
+        glm::vec4(0.0, 1.0, 0.0, 0.0),
+        glm::vec4(0.0, 0.0, 0.0, 1.0)
+      ), glm::vec3(globalScale));
+
       // Prepare uniform buffer (view & projection matrix)
-      viewMtx = glm::lookAt(glm::vec3(cos(ctx.time) * cameraOrbitRadius, cameraOrbitHeight, sin(ctx.time) * cameraOrbitRadius), cameraLookAt, glm::vec3(0.0, 1.0, 0.0));
-      projMtx = glm::perspective(glm::radians(45.0f), float(width) / float(height), 0.1f, 10.0f);
+      viewMtx = glm::lookAt(glm::vec3(cos(ctx.time) * cameraOrbitRadius, cameraOrbitHeight, sin(ctx.time) * cameraOrbitRadius) + cameraLookAt, cameraLookAt, glm::vec3(0.0, 1.0, 0.0));
+      projMtx = glm::perspective(glm::radians(45.0f), float(width) / float(height), 0.01f, 1000.0f);
       projMtx[1][1] *= -1.0;
 
       // Map & upload the constants
@@ -310,13 +192,15 @@ int main(int, char**)
       ShaderUniform* uniformBufferGPU = uniformBuffer->Map<ShaderUniform>();
       uniformBufferGPU->viewProjMtx = projMtx * viewMtx;
       uniformBuffer->UnMap();
-      
-      r.getDevice().waitIdle();
 
       // Allocate descriptor sets & bind uniforms
-      auto descSet = pipeline->AllocDescSet(ctx.descPool);
+      auto descSet = pipeline->AllocDescSet(ctx.descPool, r.getTextureSystem().GetNumImageViews() + 1);
       pipeline->BindGraphicsUniformBuffer(*pipeline, descSet, *uniformBuffer, 0, sizeof(ShaderUniform), 0);
-      pipeline->BindGraphicsImageView(*pipeline, descSet, r.getTextureSystem().GetImageView({ 0 }), vk::ImageLayout::eShaderReadOnlyOptimal, r.getTextureSystem().GetSampler(), 1);
+
+      for (int i = 0; i < r.getTextureSystem().GetNumImageViews(); i++)
+      {
+        pipeline->BindGraphicsImageView(*pipeline, descSet, r.getTextureSystem().GetImageView({ i }), vk::ImageLayout::eShaderReadOnlyOptimal, r.getTextureSystem().GetSampler(), 15, i);
+      }
 
       // Begin & resets the command buffer
       ctx.cmdBuffer.Begin();
@@ -332,14 +216,14 @@ int main(int, char**)
         // Bind the descriptor sets (uniform buffer, texture, etc.)
         ctx.cmdBuffer.BindGraphicsDescSets(*pipeline, descSet);
         // Draw objects
-        int i = 0;
-        for (auto& drawCmd : drawObjects)
-        {
-          // Set the model matrix using "Push constant"
-          ctx.cmdBuffer.PushConstants(*pipeline, vk::ShaderStageFlagBits::eVertex, 0, drawCmd.transform);
-          ctx.cmdBuffer.DrawIndexed(drawCmd.indexCount, drawCmd.firstIndex, drawCmd.vertexOffset);
-          i++;
-        }
+        rootNode->ForEach(globalTransform, [&](const MeshSystem::Node& n, glm::mat4 transform) {
+          if (n.HasMesh())
+          {
+            auto& drawCmd = drawObjects[&n];
+            ctx.cmdBuffer.PushConstants(*pipeline, vk::ShaderStageFlagBits::eVertex, 0, transform);
+            ctx.cmdBuffer.DrawIndexed(drawCmd.indexCount, drawCmd.firstIndex, drawCmd.vertexOffset);
+          }
+          });
         });
       // End the recording of command buffer
       ctx.cmdBuffer.End();
@@ -353,11 +237,21 @@ int main(int, char**)
       ImGui::DragFloat3("Camera Look At", &cameraLookAt[0], 0.01f);
       ImGui::DragFloat("Camera Orbit Radius", &cameraOrbitRadius, 0.01f);
       ImGui::DragFloat("Camera Orbit Height", &cameraOrbitHeight, 0.01f);
+      ImGui::DragFloat("Global Scale", &globalScale, 0.01f);
+      ImGui::Checkbox("Is Y axis up", &yUp);
+
+      rootNode->ForEach(glm::mat4(1.0), [&](const MeshSystem::Node& n, glm::mat4 transform) {
+        if (ImGui::TreeNodeEx(&n, 0, "Node 0x%x", &n))
+        {
+          for (int i = 0; i < 4; i++) ImGui::Text("%f %f %f %f", transform[i].x, transform[i].y, transform[i].z, transform[i].w);
+          ImGui::TreePop();
+        }
+        });
+
       ImGui::End();
     },
     // Cleanup
     [&]() {
-
     }
   );
 

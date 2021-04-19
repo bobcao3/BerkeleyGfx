@@ -21,17 +21,17 @@ std::vector<uint32_t> BuildSPIRV(glslang::TProgram& program, EShLanguage shaderT
   return spirv;
 }
 
-void BindDescriptorReflection(Pipeline& p, int binding, SpvReflectDescriptorType type, vk::ShaderStageFlags stage)
+void BindDescriptorReflection(Pipeline& p, int binding, SpvReflectDescriptorType type, vk::ShaderStageFlags stage, int arraySize = 1, bool unbounded = false)
 {
   if (type == SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
   {
     spdlog::debug("Descriptor: binding = {}, Uniform Buffer", binding);
-    p.AddDescriptorUniform(binding, stage);
+    p.AddDescriptorUniform(binding, stage, arraySize, unbounded);
   }
   else if (type == SPV_REFLECT_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
   {
     spdlog::debug("Descriptor: binding = {}, Texture / Combined Sampler", binding);
-    p.AddDescriptorTexture(binding, stage);
+    p.AddDescriptorTexture(binding, stage, arraySize, unbounded);
   }
 }
 
@@ -56,6 +56,10 @@ std::vector<uint32_t> BG::Pipeline::BuildProgramFromSrc(std::string shaders, int
   Resources.maxDrawBuffers = true;
   Resources.limits.generalVariableIndexing = true;
   Resources.limits.nonInductiveForLoops = true;
+  Resources.limits.generalUniformIndexing = true;
+  Resources.limits.generalSamplerIndexing = true;
+  Resources.limits.generalVariableIndexing = true;
+  Resources.limits.generalVaryingIndexing = true;
 
   EShMessages messages = (EShMessages)(EShMsgSpvRules | EShMsgVulkanRules);
 
@@ -103,9 +107,11 @@ std::vector<uint32_t> BG::Pipeline::BuildProgramFromSrc(std::string shaders, int
 
     if (std::string(binding.name) != "")
     {
-      spdlog::debug("Descriptor name {}", binding.name);
+      spdlog::debug("Descriptor name {}, #dimensions={}, dim 0 size={}", binding.name, binding.array.dims_count, binding.array.dims[0]);
       this->m_name2bindings[binding.name] = binding.binding;
     }
+
+    bool unbounded = binding.type_description->op == SpvOpTypeRuntimeArray;
 
     if (binding.block.members != nullptr)
     {
@@ -122,7 +128,7 @@ std::vector<uint32_t> BG::Pipeline::BuildProgramFromSrc(std::string shaders, int
       spdlog::debug("Block size {}", binding.block.padded_size);
     }
 
-    BindDescriptorReflection(*this, binding.binding, binding.descriptor_type, stage);
+    BindDescriptorReflection(*this, binding.binding, binding.descriptor_type, stage, 1, unbounded);
   }
 
   for (uint32_t i = 0; i < module.push_constant_block_count; i++)
@@ -197,7 +203,7 @@ uint32_t BG::Pipeline::GetMemberOffset(std::string name)
   return m_memberOffsets[name];
 }
 
-void BG::Pipeline::AddDescriptorUniform(int binding, vk::ShaderStageFlags stage, int count)
+void BG::Pipeline::AddDescriptorUniform(int binding, vk::ShaderStageFlags stage, int count, bool unbounded)
 {
   vk::DescriptorSetLayoutBinding layoutBinding;
   layoutBinding.binding = binding;
@@ -207,18 +213,26 @@ void BG::Pipeline::AddDescriptorUniform(int binding, vk::ShaderStageFlags stage,
   layoutBinding.pImmutableSamplers = nullptr;
 
   m_descSetLayoutBindings.push_back(layoutBinding);
+  if (unbounded)
+    m_descSetLayoutBindingFlags.push_back(vk::DescriptorBindingFlagBits::ePartiallyBound | vk::DescriptorBindingFlagBits::eVariableDescriptorCount);
+  else
+    m_descSetLayoutBindingFlags.push_back(vk::DescriptorBindingFlagBits(0));
 }
 
-void BG::Pipeline::AddDescriptorTexture(int binding, vk::ShaderStageFlags stage, int count)
+void BG::Pipeline::AddDescriptorTexture(int binding, vk::ShaderStageFlags stage, int count, bool unbounded)
 {
   vk::DescriptorSetLayoutBinding layoutBinding;
   layoutBinding.binding = binding;
   layoutBinding.descriptorType = vk::DescriptorType::eCombinedImageSampler;
-  layoutBinding.descriptorCount = count;
+  layoutBinding.descriptorCount = unbounded ? 4096 : count;
   layoutBinding.stageFlags = stage;
   layoutBinding.pImmutableSamplers = nullptr;
 
   m_descSetLayoutBindings.push_back(layoutBinding);
+  if (unbounded)
+    m_descSetLayoutBindingFlags.push_back(vk::DescriptorBindingFlagBits::ePartiallyBound | vk::DescriptorBindingFlagBits::eVariableDescriptorCount);
+  else
+    m_descSetLayoutBindingFlags.push_back(vk::DescriptorBindingFlagBits(0));
 }
 
 void BG::Pipeline::SetViewport(float width, float height, float x, float y, float minDepth, float maxDepth)
@@ -282,7 +296,11 @@ void BG::Pipeline::AddDepthAttachment(vk::ImageLayout initialLayout, vk::ImageLa
 void BG::Pipeline::BuildPipeline()
 {
   vk::DescriptorSetLayoutCreateInfo layoutInfo;
+  vk::DescriptorSetLayoutBindingFlagsCreateInfo layoutFlagsInfo;
+  layoutFlagsInfo.setBindingCount(m_descSetLayoutBindings.size());
+  layoutFlagsInfo.setBindingFlags(m_descSetLayoutBindingFlags);
   layoutInfo.setBindings(m_descSetLayoutBindings);
+  layoutInfo.setPNext(&layoutFlagsInfo);
 
   m_descriptorSetLayout = m_device.createDescriptorSetLayoutUnique(layoutInfo);
 
@@ -390,12 +408,20 @@ void BG::Pipeline::AddPushConstant(uint32_t offset, uint32_t size, vk::ShaderSta
   m_pushConstants.push_back(range);
 }
 
-vk::DescriptorSet Pipeline::AllocDescSet(vk::DescriptorPool pool)
+vk::DescriptorSet Pipeline::AllocDescSet(vk::DescriptorPool pool, int variableDescriptorCount)
 {
+  uint32_t vCount = variableDescriptorCount;
+
+  vk::DescriptorSetVariableDescriptorCountAllocateInfoEXT variableCount;
+  variableCount.pDescriptorCounts = &vCount;
+  variableCount.descriptorSetCount = 1;
+
   vk::DescriptorSetAllocateInfo allocInfo;
   allocInfo.descriptorPool = pool;
   allocInfo.descriptorSetCount = 1;
   allocInfo.pSetLayouts = &m_descriptorSetLayout.get();
+
+  if (variableDescriptorCount != 0) allocInfo.pNext = &variableCount;
 
   return m_device.allocateDescriptorSets(allocInfo)[0];
 }

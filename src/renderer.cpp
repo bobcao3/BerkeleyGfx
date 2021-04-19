@@ -365,6 +365,8 @@ void BG::Renderer::CreateDevice()
 
   deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 
+  bool hasDescriptorIndexing = false;
+
   for (auto& cap : deviceExtensionCapabilities)
   {
     if (std::string(cap.extensionName.data()) == "VK_KHR_portability_subset")
@@ -372,11 +374,30 @@ void BG::Renderer::CreateDevice()
       spdlog::debug("Potential non-conformant Vulkan implementation, enabling VK_KHR_portability_subset.");
       deviceExtensions.push_back(cap.extensionName);
     }
+    if (std::string(cap.extensionName.data()) == "VK_EXT_descriptor_indexing")
+    {
+      spdlog::info("Enabling descriptor indexing");
+      deviceExtensions.push_back(cap.extensionName);
+      hasDescriptorIndexing = true;
+    }
   }
 
   vk::PhysicalDeviceFeatures deviceFeatures;
 
-  m_device = m_physicalDevice.createDeviceUnique({ {}, queueCreateInfo, deviceLayers, deviceExtensions, &deviceFeatures }, nullptr);
+  vk::DeviceCreateInfo deviceCreateInfo = { {}, queueCreateInfo, deviceLayers, deviceExtensions, &deviceFeatures };
+
+  vk::PhysicalDeviceDescriptorIndexingFeaturesEXT descriptorIndexingFeature;
+  if (hasDescriptorIndexing)
+  {
+    descriptorIndexingFeature.descriptorBindingPartiallyBound = true;
+    descriptorIndexingFeature.descriptorBindingVariableDescriptorCount = true;
+    descriptorIndexingFeature.shaderSampledImageArrayNonUniformIndexing = true;
+    descriptorIndexingFeature.runtimeDescriptorArray = true;
+
+    deviceCreateInfo.setPNext(&descriptorIndexingFeature);
+  }
+
+  m_device = m_physicalDevice.createDeviceUnique(deviceCreateInfo, nullptr);
   
   m_graphcisQueue = m_device->getQueue(m_selectedPhyDeviceQueueIndices.graphics, 0);
 

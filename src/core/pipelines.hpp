@@ -41,6 +41,7 @@ namespace BG
     std::vector<vk::VertexInputBindingDescription> m_bindingDescriptions;
     std::vector<vk::VertexInputAttributeDescription> m_attributeDescriptions;
     std::vector<vk::DescriptorSetLayoutBinding> m_descSetLayoutBindings;
+    std::vector<vk::DescriptorBindingFlags> m_descSetLayoutBindingFlags;
     std::vector<vk::PushConstantRange> m_pushConstants;
 
     std::vector<uint32_t> BuildProgramFromSrc(std::string shaders, int shaderType);
@@ -69,8 +70,8 @@ namespace BG
     int GetBindingByName(std::string name);
     uint32_t GetMemberOffset(std::string name);
 
-    void AddDescriptorUniform(int binding, vk::ShaderStageFlags stage, int count = 1);
-    void AddDescriptorTexture(int binding, vk::ShaderStageFlags stage, int count = 1);
+    void AddDescriptorUniform(int binding, vk::ShaderStageFlags stage, int count = 1, bool unbound = false);
+    void AddDescriptorTexture(int binding, vk::ShaderStageFlags stage, int count = 1, bool unbound = false);
 
     void AddPushConstant(uint32_t offset, uint32_t size, vk::ShaderStageFlags stage);
 
@@ -82,7 +83,7 @@ namespace BG
 
     void BuildPipeline();
 
-    vk::DescriptorSet AllocDescSet(vk::DescriptorPool pool);
+    vk::DescriptorSet AllocDescSet(vk::DescriptorPool pool, int variableDescriptorCount = 0);
 
     void BindGraphicsUniformBuffer(Pipeline& p, vk::DescriptorSet descSet, const BG::Buffer& buffer, uint32_t offset, uint32_t range, int binding, int arrayElement = 0);
     void BindGraphicsImageView(Pipeline& p, vk::DescriptorSet descSet, vk::ImageView view, vk::ImageLayout layout, vk::Sampler sampler, int binding, int arrayElement = 0);

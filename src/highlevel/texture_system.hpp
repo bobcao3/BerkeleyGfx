@@ -29,6 +29,8 @@ namespace BG
 
     TextureSystem(vk::Device device, MemoryAllocator& allocator, Renderer& renderer);
 
+    inline int GetNumImageViews() { return m_imageViews.size(); }
+
     inline vk::ImageView GetImageView(Handle id) { return m_imageViews[id.index].get(); }
     inline vk::Sampler GetSampler() { return m_samplerBilinear.get(); }
   };
