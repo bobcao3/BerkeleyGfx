@@ -324,7 +324,7 @@ void BG::Renderer::PickPhysicalDevice()
       i++;
     }
 
-    int score = int(totalLocalMemorySize >> 20) + (isDiscrete ? 2000 : 0);
+    int score = int(totalLocalMemorySize >> 20) + (isDiscrete ? 000 : 200000);
 
     if (score > highest_score && graphicsQueue != -1)
     {
@@ -366,20 +366,40 @@ void BG::Renderer::CreateDevice()
   deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 
   bool hasDescriptorIndexing = false;
+  bool hasPhysicalDeviceProperties2 = false;
+  bool hasMintenance3 = false;
 
   for (auto& cap : deviceExtensionCapabilities)
   {
-    if (std::string(cap.extensionName.data()) == "VK_KHR_portability_subset")
+    std::string name = std::string(cap.extensionName.data());
+    if (name == "VK_KHR_portability_subset")
     {
       spdlog::debug("Potential non-conformant Vulkan implementation, enabling VK_KHR_portability_subset.");
       deviceExtensions.push_back(cap.extensionName);
     }
-    if (std::string(cap.extensionName.data()) == "VK_EXT_descriptor_indexing")
+    if (name == "VK_EXT_descriptor_indexing")
     {
-      spdlog::info("Enabling descriptor indexing");
-      deviceExtensions.push_back(cap.extensionName);
       hasDescriptorIndexing = true;
     }
+    if (name == "VK_KHR_get_physical_device_properties2")
+    {
+      hasPhysicalDeviceProperties2 = true;
+    }
+    if (name == "VK_KHR_maintenance3")
+    {
+      hasMintenance3 = true;
+    }
+
+    spdlog::debug(cap.extensionName);
+  }
+
+  if (hasDescriptorIndexing && hasPhysicalDeviceProperties2 && hasMintenance3)
+  {
+    spdlog::info("Enabling descriptor indexing");
+    deviceExtensions.push_back("VK_EXT_descriptor_indexing");
+    deviceExtensions.push_back("VK_KHR_get_physical_device_properties2");
+    deviceExtensions.push_back("VK_KHR_maintenance3");
+    m_hasDescriptorIndexing = true;
   }
 
   vk::PhysicalDeviceFeatures deviceFeatures;
@@ -387,7 +407,7 @@ void BG::Renderer::CreateDevice()
   vk::DeviceCreateInfo deviceCreateInfo = { {}, queueCreateInfo, deviceLayers, deviceExtensions, &deviceFeatures };
 
   vk::PhysicalDeviceDescriptorIndexingFeaturesEXT descriptorIndexingFeature;
-  if (hasDescriptorIndexing)
+  if (m_hasDescriptorIndexing)
   {
     descriptorIndexingFeature.descriptorBindingPartiallyBound = true;
     descriptorIndexingFeature.descriptorBindingVariableDescriptorCount = true;
@@ -866,7 +886,7 @@ void BG::Renderer::Run(std::function<void()> init, std::function<void(Context&)>
 
 std::unique_ptr<Pipeline> BG::Renderer::CreatePipeline()
 {
-  return std::make_unique<Pipeline>(m_device.get());
+  return std::make_unique<Pipeline>(*this, m_device.get());
 }
 
 int Renderer::getWidth()

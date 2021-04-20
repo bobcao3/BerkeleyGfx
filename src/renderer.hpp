@@ -102,6 +102,8 @@ namespace BG
 
   public:
 
+    bool m_hasDescriptorIndexing = false;
+
     struct Context
     {
       CommandBuffer& cmdBuffer;

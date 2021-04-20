@@ -84,6 +84,15 @@ void BG::ShaderGraph::Graph::CreateTexture(glm::uvec2 extent, vk::Format format,
   {
     auto image = r.getMemoryAllocator().AllocImage2D(extent, 1, format, vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled, vk::ImageLayout::eUndefined);
 
+    auto _cmdBuf = r.AllocCmdBuffer();
+    CommandBuffer cmdBuf(r.getDevice(), _cmdBuf.get(), r.getTracker());
+
+    cmdBuf.Begin();
+    cmdBuf.ImageTransition(*image, vk::PipelineStageFlagBits::eBottomOfPipe, vk::PipelineStageFlagBits::eTopOfPipe, vk::ImageLayout::eUndefined, vk::ImageLayout::eShaderReadOnlyOptimal);
+    cmdBuf.End();
+
+    r.SubmitCmdBufferNow(cmdBuf.GetVkCmdBuf());
+
     vk::ImageViewCreateInfo viewInfo;
     viewInfo.image = image->image;
     viewInfo.viewType = vk::ImageViewType::e2D;
@@ -415,13 +424,26 @@ void Graph::Render(Renderer& r, Renderer::Context& ctx, std::string target)
     }
 
     if (textures[textureName]->isInternal)
-      ctx.cmdBuffer.ImageTransition(*textures[textureName]->image[imageIndex], vk::PipelineStageFlagBits::eBottomOfPipe, vk::PipelineStageFlagBits::eFragmentShader, vk::ImageLayout::eUndefined, vk::ImageLayout::eShaderReadOnlyOptimal);
+    {
+      ctx.cmdBuffer.ImageTransition(
+        *textures[textureName]->image[imageIndex],
+        vk::PipelineStageFlagBits::eBottomOfPipe, vk::PipelineStageFlagBits::eFragmentShader,
+        vk::ImageLayout::eShaderReadOnlyOptimal, vk::ImageLayout::eShaderReadOnlyOptimal);
+    }
 
     pipeline->BindGraphicsImageView(
       *pipeline, descSet,
       textures[textureName]->imageView[imageIndex],
       vk::ImageLayout::eShaderReadOnlyOptimal, r.getTextureSystem().GetSampler(),
       textureBinding.binding);
+  }
+
+  if (target != "framebuffer")
+  {
+    ctx.cmdBuffer.ImageTransition(
+      *texture->image[ctx.imageIndex],
+      vk::PipelineStageFlagBits::eBottomOfPipe, vk::PipelineStageFlagBits::eColorAttachmentOutput,
+      vk::ImageLayout::eUndefined, vk::ImageLayout::eColorAttachmentOptimal);
   }
 
   ctx.cmdBuffer.WithRenderPass(*pipeline, renderTarget, texture->extent, [&]() {

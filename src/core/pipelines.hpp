@@ -14,6 +14,8 @@ namespace BG
     vk::UniqueShaderModule AddShaders(std::string shaders, int shaderType);
 
     vk::Device m_device;
+
+    Renderer& r;
     
     vk::Viewport m_viewport;
     vk::Rect2D   m_scissor;
@@ -99,7 +101,7 @@ namespace BG
       glm::vec4 clearColor = glm::vec4(1.0),
       glm::ivec2 offset = glm::ivec2(0));
 
-    Pipeline(vk::Device device);
+    Pipeline(Renderer& r, vk::Device device);
 
     static void InitBackend();
   };

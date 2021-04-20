@@ -1,4 +1,5 @@
 #include "pipelines.hpp"
+#include "renderer.hpp"
 #include "buffer.hpp"
 
 #include <glslang/Public/ShaderLang.h>
@@ -105,13 +106,13 @@ std::vector<uint32_t> BG::Pipeline::BuildProgramFromSrc(std::string shaders, int
   {
     SpvReflectDescriptorBinding& binding = module.descriptor_bindings[i];
 
+    bool unbounded = binding.type_description->op == SpvOpTypeRuntimeArray;
+
     if (std::string(binding.name) != "")
     {
-      spdlog::debug("Descriptor name {}, #dimensions={}, dim 0 size={}", binding.name, binding.array.dims_count, binding.array.dims[0]);
+      spdlog::debug("Descriptor name {}, unbounded={}", binding.name, unbounded);
       this->m_name2bindings[binding.name] = binding.binding;
     }
-
-    bool unbounded = binding.type_description->op == SpvOpTypeRuntimeArray;
 
     if (binding.block.members != nullptr)
     {
@@ -300,7 +301,10 @@ void BG::Pipeline::BuildPipeline()
   layoutFlagsInfo.setBindingCount(m_descSetLayoutBindings.size());
   layoutFlagsInfo.setBindingFlags(m_descSetLayoutBindingFlags);
   layoutInfo.setBindings(m_descSetLayoutBindings);
-  layoutInfo.setPNext(&layoutFlagsInfo);
+  if (r.m_hasDescriptorIndexing)
+  {
+    layoutInfo.setPNext(&layoutFlagsInfo);
+  }
 
   m_descriptorSetLayout = m_device.createDescriptorSetLayoutUnique(layoutInfo);
 
@@ -542,8 +546,8 @@ void BG::Pipeline::BindRenderPass(
   buf.bindPipeline(vk::PipelineBindPoint::eGraphics, m_pipeline.get());
 }
 
-BG::Pipeline::Pipeline(vk::Device device)
-  : m_device(device)
+BG::Pipeline::Pipeline(Renderer& r, vk::Device device)
+  : r(r), m_device(device)
 {
   m_vertexInputInfo.setVertexBindingDescriptions(m_bindingDescriptions);
   m_vertexInputInfo.setVertexAttributeDescriptions(m_attributeDescriptions);
