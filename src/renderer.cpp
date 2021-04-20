@@ -246,7 +246,7 @@ void BG::Renderer::CreateInstance()
     glfwExtensionsVec.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
   }
 
-  vk::ApplicationInfo appInfo{ m_name.c_str(), VK_MAKE_VERSION(1, 0, 0), "Berkeley Gfx", VK_MAKE_VERSION(1, 0, 0), VK_API_VERSION_1_0 };
+  vk::ApplicationInfo appInfo{ m_name.c_str(), VK_MAKE_VERSION(1, 0, 0), "Berkeley Gfx", VK_MAKE_VERSION(1, 0, 0), VK_API_VERSION_1_2 };
   vk::InstanceCreateInfo createInfo{
     {}, /* flags */
     &appInfo, /* pApplicationInfo */
@@ -362,6 +362,7 @@ void BG::Renderer::CreateDevice()
   std::vector<const char*> deviceExtensions;
   
   auto deviceExtensionCapabilities = m_physicalDevice.enumerateDeviceExtensionProperties();
+  auto deviceProperties = m_physicalDevice.getProperties();
 
   deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 
@@ -393,7 +394,12 @@ void BG::Renderer::CreateDevice()
     spdlog::debug(cap.extensionName);
   }
 
-  if (hasDescriptorIndexing && hasPhysicalDeviceProperties2 && hasMintenance3)
+  if (deviceProperties.apiVersion >= VK_API_VERSION_1_2)
+  {
+    spdlog::info("Enabling descriptor indexing & Vulkan 1.2");
+    m_hasDescriptorIndexing = true;
+  }
+  else if (hasDescriptorIndexing && hasPhysicalDeviceProperties2 && hasMintenance3)
   {
     spdlog::info("Enabling descriptor indexing");
     deviceExtensions.push_back("VK_EXT_descriptor_indexing");
