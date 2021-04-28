@@ -42,14 +42,14 @@ namespace BG
       const BG::Image& image,
       vk::PipelineStageFlags fromStage, vk::PipelineStageFlags toStage,
       vk::ImageLayout oldLayout, vk::ImageLayout newLayout,
-      int baseMip = 0, int levels = 1, int baseLayer = 0, int layers = 1);
+      int baseMip = 0, int levels = 1, int baseLayer = 0, int layers = 1) const;
 
     void ImageTransition(
       vk::Image image,
       vk::PipelineStageFlags fromStage, vk::PipelineStageFlags toStage,
       vk::ImageLayout oldLayout, vk::ImageLayout newLayout,
       vk::ImageAspectFlags aspect,
-      int baseMip = 0, int levels = 1, int baseLayer = 0, int layers = 1);
+      int baseMip = 0, int levels = 1, int baseLayer = 0, int layers = 1) const;
 
     void WithRenderPass(
       Pipeline& p,
@@ -81,7 +81,7 @@ namespace BG
 
     CommandBuffer(vk::Device device, vk::CommandBuffer buf, BG::Tracker& tracker);
 
-    inline vk::CommandBuffer GetVkCmdBuf() { return m_buf; }
+    inline vk::CommandBuffer GetVkCmdBuf() const { return m_buf; }
   };
 
 }

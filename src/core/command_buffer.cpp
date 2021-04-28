@@ -105,7 +105,11 @@ vk::AccessFlags getAccessFlags(vk::ImageLayout layout, bool read)
   }
 }
 
-void BG::CommandBuffer::ImageTransition(const BG::Image& image, vk::PipelineStageFlags fromStage, vk::PipelineStageFlags toStage, vk::ImageLayout oldLayout, vk::ImageLayout newLayout, int baseMip, int levels, int baseLayer, int layers)
+void BG::CommandBuffer::ImageTransition(
+  const BG::Image& image,
+  vk::PipelineStageFlags fromStage, vk::PipelineStageFlags toStage,
+  vk::ImageLayout oldLayout, vk::ImageLayout newLayout,
+  int baseMip, int levels, int baseLayer, int layers) const
 {
   vk::ImageAspectFlags aspect = vk::ImageAspectFlagBits(0);
   if (image.HasColorPlane()) aspect |= vk::ImageAspectFlagBits::eColor;
@@ -114,9 +118,12 @@ void BG::CommandBuffer::ImageTransition(const BG::Image& image, vk::PipelineStag
   ImageTransition(image.image, fromStage, toStage, oldLayout, newLayout, aspect, baseMip, levels, baseLayer, layers);
 }
 
-void BG::CommandBuffer::ImageTransition(vk::Image image, vk::PipelineStageFlags fromStage, vk::PipelineStageFlags toStage, vk::ImageLayout oldLayout, vk::ImageLayout newLayout, vk::ImageAspectFlags aspect, int baseMip, int levels, int baseLayer, int layers)
+void BG::CommandBuffer::ImageTransition(
+  vk::Image image,
+  vk::PipelineStageFlags fromStage, vk::PipelineStageFlags toStage,
+  vk::ImageLayout oldLayout, vk::ImageLayout newLayout, vk::ImageAspectFlags aspect,
+  int baseMip, int levels, int baseLayer, int layers) const
 {
-
   vk::ImageMemoryBarrier barrierToTransfer;
   barrierToTransfer.oldLayout = oldLayout;
   barrierToTransfer.newLayout = newLayout;
