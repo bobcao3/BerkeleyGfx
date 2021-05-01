@@ -474,7 +474,7 @@ void Graph::Render(Renderer& r, Renderer::Context& ctx)
   ShaderUniform* uniformBufferGPU = uniformBuffer->Map<ShaderUniform>();
   uniformBufferGPU->iResolution = glm::vec3(r.getWidth(), r.getHeight(), 1.0f);
   uniformBufferGPU->iTime = float((now - startTime).count() * 1e-9);
-  uniformBufferGPU->iMouse = glm::vec4(r.getCursorPos(), 0.0f, 0.0f);
+  uniformBufferGPU->iMouse = glm::vec4(r.getCursorPos(), r.getMouseButtonState());
   uniformBufferGPU->iTimeDelta = float((now - lastTime).count() * 1e-9);
   uniformBufferGPU->iFrame = int(frameCount);
   uniformBuffer->UnMap();

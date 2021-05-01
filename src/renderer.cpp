@@ -909,7 +909,17 @@ glm::vec2 BG::Renderer::getCursorPos()
 {
   double x, y;
   glfwGetCursorPos(m_window, &x, &y);
-  return glm::vec2(x, y);
+  //float xscale, yscale;
+  //glfwGetWindowContentScale(m_window, &xscale, &yscale);
+  return glm::vec2(x, y); // *glm::vec2(xscale, yscale);
+}
+
+glm::bvec2 BG::Renderer::getMouseButtonState()
+{
+    return glm::bvec2(
+      glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS,
+      glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS
+    );
 }
 
 vk::Format BG::Renderer::getSwapChainFormat()

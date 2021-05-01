@@ -129,6 +129,7 @@ namespace BG
     int getHeight();
 
     glm::vec2 getCursorPos();
+    glm::bvec2 getMouseButtonState();
 
     inline BG::MemoryAllocator& getMemoryAllocator() { return *m_memoryAllocator; };
     inline BG::TextureSystem& getTextureSystem() { return *m_textureSystem; };
